@@ -124,6 +124,14 @@ pub struct DocumentationTag {
 }
 
 impl DocumentationTag {
+    pub fn new(kind: Tag, description: String, range: Option<Range>) -> DocumentationTag {
+        DocumentationTag {
+            kind,
+            description,
+            range,
+        }
+    }
+
     pub fn param_name(&self) -> Option<&str> {
         match self.kind {
             Tag::Param => self

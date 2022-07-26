@@ -1,3 +1,5 @@
+use std::mem;
+
 use super::super::AssociatedElement;
 use crate::util::span_to_range::{RangeConverter, Span, Spanned};
 use crate::{DeclarationKind, DocumentationTag, NatSpec, Tag};
@@ -73,16 +75,14 @@ impl NatSpecBuilder {
                 continue;
             }
 
-            let not_finished_with_previous_tag = || !cur_desc.is_empty();
+            let not_finished_with_previous_tag = !cur_desc.is_empty();
 
             if line.starts_with('@') {
-                if not_finished_with_previous_tag() {
-                    let doc_tag = DocumentationTag {
-                        kind: cur_tag.clone(),
-                        description: cur_desc.clone(),
-                        range: cur_span,
-                    };
+                if not_finished_with_previous_tag {
+                    let doc_tag =
+                        DocumentationTag::new(cur_tag.clone(), cur_desc.clone(), cur_span);
                     tags.push(doc_tag);
+
                     cur_desc.clear();
                 }
 
@@ -107,19 +107,18 @@ impl NatSpecBuilder {
                 };
             } else {
                 //then it is a run-on description
-                if not_finished_with_previous_tag() {
+                if not_finished_with_previous_tag {
                     cur_desc.push('\n');
                 }
                 cur_desc.push_str(line);
             }
         }
 
+        // this check deals with the cases where the body was empty,
+        // or contained only whitespace lines.
+        // otherwise we are guaranteed to have an in-progress tag that should be pushed.
         if !cur_desc.is_empty() {
-            let doc_tag = DocumentationTag {
-                kind: cur_tag,
-                description: cur_desc,
-                range: cur_span,
-            };
+            let doc_tag = DocumentationTag::new(cur_tag, cur_desc, cur_span);
             tags.push(doc_tag);
         }
 
