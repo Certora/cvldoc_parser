@@ -1,8 +1,5 @@
-use std::mem;
-
-use super::super::AssociatedElement;
 use crate::util::span_to_range::{RangeConverter, Span, Spanned};
-use crate::{DeclarationKind, DocumentationTag, NatSpec, Tag};
+use crate::{AssociatedElement, DeclarationKind, DocumentationTag, NatSpec, Tag};
 use color_eyre::eyre::bail;
 use color_eyre::Report;
 use itertools::Itertools;
