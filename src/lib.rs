@@ -28,8 +28,37 @@ pub enum NatSpec {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssociatedElement {
+    kind: DeclarationKind,
     name: String,
     params: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeclarationKind {
+    Rule,
+    Invariant,
+    Function,
+    Definition,
+    Ghost,
+    Methods,
+}
+
+impl TryFrom<&str> for DeclarationKind {
+    type Error = color_eyre::Report;
+
+    fn try_from(kw: &str) -> Result<Self, Self::Error> {
+        use DeclarationKind::*;
+
+        match kw {
+            "rule" => Ok(Rule),
+            "invariant" => Ok(Invariant),
+            "function" => Ok(Function),
+            "definition" => Ok(Definition),
+            "ghost" => Ok(Ghost),
+            "methods" => Ok(Methods),
+            _ => bail!("unrecognized declaration keyword: {kw}"),
+        }
+    }
 }
 
 impl NatSpec {
@@ -56,7 +85,7 @@ impl NatSpec {
             .unwrap_or_default()
             .into_iter()
             .filter_map(|(builder, span)| {
-                let natspec = builder.build_with_converter(&converter).ok()?;
+                let natspec = builder.build_with_converter(converter.clone()).ok()?;
                 let range = converter.to_range(span);
                 Some((natspec, range))
             })

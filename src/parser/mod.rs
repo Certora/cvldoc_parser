@@ -1,21 +1,12 @@
 pub mod builder;
 
+use self::builder::UnderDoc;
 use crate::util::span_to_range::Spanned;
 use builder::NatSpecBuilder;
 use chumsky::combinator::Repeated;
 use chumsky::prelude::*;
 use chumsky::primitive::OneOf;
 use std::hash::Hash;
-
-fn newline_or_end<'a>() -> impl Parser<char, &'a str, Error = Simple<char>> + Clone {
-    let newline = [just("\r\n"), just("\n")];
-    choice(newline).or(end().to("")).boxed()
-}
-
-fn horizontal_ws<'a>() -> Repeated<OneOf<char, &'a [char; 2], Simple<char>>> {
-    let ws: &[char; 2] = &[' ', '\t'];
-    one_of(ws).repeated()
-}
 
 /// a version of `take_until` that only collects the input before the terminator,
 /// and drops the output of the terminating pattern parser
@@ -29,14 +20,16 @@ where
     take_until(terminator).map(ignore_terminator)
 }
 
-const KEYWORDS: &[&str; 6] = &[
-    "rule",
-    "invariant",
-    "function",
-    "definition",
-    "ghost",
-    "methods",
-];
+fn newline_or_end<'src>() -> impl Parser<char, &'src str, Error = Simple<char>> + Clone {
+    const NEWLINE: &[&str; 2] = &["\r\n", "\n"];
+    let newline_parsers = NEWLINE.map(just);
+    choice(newline_parsers).or(end().to("")).boxed()
+}
+
+fn horizontal_ws<'src>() -> Repeated<OneOf<char, &'src [char; 2], Simple<char>>> {
+    const HORIZONTAL_WHITESPACE: &[char; 2] = &[' ', '\t'];
+    one_of(HORIZONTAL_WHITESPACE).repeated()
+}
 
 pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error = Simple<char>> {
     let take_to_newline_or_end = take_until_without_terminator(newline_or_end()).boxed();
@@ -126,15 +119,23 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
         .then(none_of('*').rewind())
         .ignore_then(take_to_starred_terminator.map_with_span(builder::split_starred_doc_lines));
 
-    let declaration_keywords = KEYWORDS.map(text::keyword);
-    let ident_under_natspec = choice(declaration_keywords)
-        .ignore_then(horizontal_ws().at_least(1))
-        .ignore_then(text::ident())
-        .padded_by(horizontal_ws())
-        .boxed();
+    let decl_under_natspec = {
+        let decl_kind = text::ident().try_map(|kw: String, span| {
+            let kind = kw.as_str().try_into();
+            kind.map_err(|e| Simple::custom(span, e))
+        });
+        let decl_name = text::ident();
+
+        decl_kind
+            .then_ignore(text::whitespace())
+            .then(decl_name)
+            .padded()
+            .boxed()
+    };
+
     let params_under_natspec = {
         let args = text::ident()
-            .then_ignore(horizontal_ws().at_least(1))
+            .then_ignore(text::whitespace())
             .then(text::ident())
             .padded()
             .boxed();
@@ -143,10 +144,12 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
             .delimited_by(just('('), just(')'))
             .boxed()
     };
-    let under_natspec = text::whitespace()
-        .ignore_then(ident_under_natspec)
+
+    let under_natspec = decl_under_natspec
         .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
         .then_ignore(take_to_bracket_or_end)
+        .map(|((kind, name), params)| UnderDoc(kind, name, params))
+        .padded()
         .boxed();
 
     let documentation = choice((slashed_documentation, starred_documentation))
@@ -328,7 +331,15 @@ mod tests {
         assert_eq!(associated.name, "goodMath");
 
         let expected_params = [("uint", "a"), ("int", "b"), ("string", "c")];
-        for (expected, actual) in zip(expected_params, &associated.params) {
+        let actual_params = &associated.params;
+
+        assert_eq!(
+            expected_params.len(),
+            actual_params.len(),
+            "not all params were parsed"
+        );
+
+        for (expected, actual) in zip(expected_params, actual_params) {
             assert_eq!(expected.0, actual.0, "parsed param type is different");
             assert_eq!(expected.1, actual.1, "parsed param name is different");
         }

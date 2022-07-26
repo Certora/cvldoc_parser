@@ -1,6 +1,6 @@
 use super::super::AssociatedElement;
 use crate::util::span_to_range::{RangeConverter, Span, Spanned};
-use crate::{DocumentationTag, NatSpec, Tag};
+use crate::{DeclarationKind, DocumentationTag, NatSpec, Tag};
 use color_eyre::eyre::bail;
 use color_eyre::Report;
 use itertools::Itertools;
@@ -13,13 +13,23 @@ pub enum NatSpecBuilder {
     },
     Documentation {
         spanned_body: Vec<Spanned<String>>,
-        element_under_doc: Option<(String, Vec<(String, String)>)>,
+        element_under_doc: Option<UnderDoc>,
     },
     ParseError,
 }
 
+#[derive(Debug, Clone)]
+pub struct UnderDoc(pub DeclarationKind, pub String, pub Vec<(String, String)>);
+
+impl From<UnderDoc> for AssociatedElement {
+    fn from(under: UnderDoc) -> Self {
+        let UnderDoc(kind, name, params) = under;
+        AssociatedElement { kind, name, params }
+    }
+}
+
 impl NatSpecBuilder {
-    pub fn build_with_converter(self, converter: &RangeConverter) -> Result<NatSpec, Report> {
+    pub fn build_with_converter(self, converter: RangeConverter) -> Result<NatSpec, Report> {
         match self {
             NatSpecBuilder::FreeFormComment { header, block } => {
                 let free_form = match block {
@@ -33,78 +43,87 @@ impl NatSpecBuilder {
                 element_under_doc,
             } => {
                 if spanned_body.is_empty() {
-                    bail!("Documentation has no body");
+                    bail!("documentation has no body");
                 }
+                let tags = NatSpecBuilder::process_doc_body(&spanned_body, converter);
 
-                let mut tags = Vec::new();
+                let associated = element_under_doc.map(AssociatedElement::from);
 
-                let mut cur_tag = Tag::default();
-                let mut cur_desc = String::new();
-                let mut cur_span = None;
+                Ok(NatSpec::Documentation { tags, associated })
+            }
+            NatSpecBuilder::ParseError => bail!("parse errors can not be converted"),
+        }
+    }
 
-                let whitespace = &[' ', '\t'];
+    fn process_doc_body(
+        spanned_body: &[(String, Span)],
+        converter: RangeConverter,
+    ) -> Vec<DocumentationTag> {
+        let mut tags = Vec::new();
 
-                for (line, line_span) in spanned_body {
-                    let previous_tag_not_finished = || !cur_desc.is_empty();
+        let mut cur_tag = Tag::default();
+        let mut cur_desc = String::new();
+        let mut cur_span = None;
 
-                    let line = line.trim();
+        let whitespace = &[' ', '\t'];
 
-                    if line.starts_with('@') {
-                        if previous_tag_not_finished() {
-                            let doc_tag = DocumentationTag {
-                                kind: cur_tag.clone(),
-                                description: cur_desc.clone(),
-                                range: cur_span,
-                            };
-                            tags.push(doc_tag);
-                            cur_desc.clear();
-                        }
+        for (line, line_span) in spanned_body {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
 
-                        let (tag, desc) = line.split_once(whitespace).unwrap_or_else(|| {
-                            //I'm not sure if it is an error to have a line that starts with @,
-                            //but has no (horizontal) whitespace. for now we accept this.
+            let not_finished_with_previous_tag = || !cur_desc.is_empty();
 
-                            //note that this condition includes newlines
-                            let last_non_whitespace =
-                                line.rfind(|c: char| !c.is_ascii_whitespace()).unwrap();
-                            line.split_at(last_non_whitespace)
-                        });
-
-                        cur_tag = tag.into();
-
-                        cur_desc.push_str(desc);
-
-                        cur_span = {
-                            let start = line_span.start;
-                            let span = start..start + tag.chars().count();
-                            Some(converter.to_range(span))
-                        };
-                    } else if !line.is_empty() {
-                        //then it is a run-on description
-                        if previous_tag_not_finished() {
-                            cur_desc.push('\n');
-                        }
-                        cur_desc.push_str(line);
-                    }
-                }
-
-                if !cur_desc.is_empty() {
+            if line.starts_with('@') {
+                if not_finished_with_previous_tag() {
                     let doc_tag = DocumentationTag {
-                        kind: cur_tag,
-                        description: cur_desc,
+                        kind: cur_tag.clone(),
+                        description: cur_desc.clone(),
                         range: cur_span,
                     };
                     tags.push(doc_tag);
+                    cur_desc.clear();
                 }
 
-                let associated =
-                    element_under_doc.map(|(name, params)| AssociatedElement { name, params });
+                let (tag, desc) = line.split_once(whitespace).unwrap_or_else(|| {
+                    //I'm not sure if it is an error to have a line that starts with @,
+                    //but has no (horizontal) whitespace. for now we accept this.
 
-                let documentation = NatSpec::Documentation { tags, associated };
-                Ok(documentation)
+                    //note that this condition includes newlines
+                    let last_non_whitespace =
+                        line.rfind(|c: char| !c.is_ascii_whitespace()).unwrap();
+                    line.split_at(last_non_whitespace)
+                });
+
+                cur_tag = tag.into();
+
+                cur_desc.push_str(desc);
+
+                cur_span = {
+                    let start = line_span.start;
+                    let span = start..start + tag.chars().count();
+                    Some(converter.to_range(span))
+                };
+            } else {
+                //then it is a run-on description
+                if not_finished_with_previous_tag() {
+                    cur_desc.push('\n');
+                }
+                cur_desc.push_str(line);
             }
-            NatSpecBuilder::ParseError => bail!("Parse errors can not be converted"),
         }
+
+        if !cur_desc.is_empty() {
+            let doc_tag = DocumentationTag {
+                kind: cur_tag,
+                description: cur_desc,
+                range: cur_span,
+            };
+            tags.push(doc_tag);
+        }
+
+        tags
     }
 
     pub(super) fn free_form_multi_line_from_body(body: String) -> NatSpecBuilder {
