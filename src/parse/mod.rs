@@ -1,60 +1,11 @@
 pub mod builder;
+mod helpers;
 
 use self::builder::UnderDoc;
 use crate::util::span_to_range::Spanned;
 use builder::NatSpecBuilder;
-use chumsky::combinator::Repeated;
 use chumsky::prelude::*;
-use chumsky::primitive::OneOf;
-use std::hash::Hash;
-
-/// a version of `take_until` that only collects the input before the terminator,
-/// and drops the output of the terminating pattern parser
-fn take_until_without_terminator<I, O>(
-    terminator: impl Parser<I, O, Error = Simple<I>> + Clone,
-) -> impl Parser<I, Vec<I>, Error = Simple<I>> + Clone
-where
-    I: Clone + Hash + Eq,
-{
-    let ignore_terminator = |(a, _b)| a;
-    take_until(terminator).map(ignore_terminator)
-}
-
-fn newline_or_end<'src>() -> impl Parser<char, &'src str, Error = Simple<char>> + Clone {
-    const NEWLINE: &[&str; 2] = &["\r\n", "\n"];
-    let newline_parsers = NEWLINE.map(just);
-    choice(newline_parsers).or(end().to("")).boxed()
-}
-
-fn horizontal_ws<'src>() -> Repeated<OneOf<char, &'src [char; 2], Simple<char>>> {
-    const HORIZONTAL_WHITESPACE: &[char; 2] = &[' ', '\t'];
-    one_of(HORIZONTAL_WHITESPACE).repeated()
-}
-
-fn take_to_newline_or_end<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
-    take_until_without_terminator(newline_or_end()).boxed()
-}
-
-fn take_to_starred_terminator<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
-    take_until_without_terminator(just("*/")).boxed()
-}
-
-fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
-    let single_line_comment = just("//").then(take_to_newline_or_end());
-    let multi_line_comment = just("/*").then(take_to_starred_terminator());
-    let comments = choice((single_line_comment, multi_line_comment))
-    .padded()
-    .repeated()
-    .padded();
-
-    comments.ignored().boxed()
-}
-
-fn mandatory_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
-    let mandatory_ws = text::whitespace().at_least(1);
-
-    mandatory_ws.ignore_then(optional_token_separator()).boxed()
-}
+use helpers::*;
 
 fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
     let padding_before_header = horizontal_ws()
@@ -118,8 +69,24 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         .map(NatSpecBuilder::free_form_multi_line_from_body)
         .boxed();
 
-    choice((free_form_single_line, free_form_multi_line))
-        .boxed()
+    choice((free_form_single_line, free_form_multi_line)).boxed()
+}
+
+fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
+    let single_line_comment = just("//").then(take_to_newline_or_end());
+    let multi_line_comment = just("/*").then(take_to_starred_terminator());
+    let comments = choice((single_line_comment, multi_line_comment))
+        .padded()
+        .repeated()
+        .padded();
+
+    comments.ignored().boxed()
+}
+
+fn mandatory_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
+    let mandatory_ws = text::whitespace().at_least(1);
+
+    mandatory_ws.ignore_then(optional_token_separator()).boxed()
 }
 
 fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
@@ -134,8 +101,7 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
             .then_ignore(mandatory_token_separator())
             .then(decl_name);
 
-        decl.padded_by(optional_token_separator())
-            .boxed()
+        decl.padded_by(optional_token_separator()).boxed()
     };
 
     let params_under_natspec = {
@@ -169,10 +135,7 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
         )
         .boxed();
 
-    let slashed_documentation = spanned_slashed_line
-        .repeated()
-        .at_least(1)
-        .boxed();
+    let slashed_documentation = spanned_slashed_line.repeated().at_least(1).boxed();
 
     let starred_documentation = just("/**")
         .then(none_of("*/").rewind())
@@ -202,10 +165,8 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
 
 #[cfg(test)]
 mod tests {
-    use crate::parse::parser;
     use crate::util::span_to_range::RangeConverter;
     use crate::{DeclarationKind, NatSpec, Tag};
-    use chumsky::Parser;
     use indoc::indoc;
     use ropey::Rope;
     use std::iter::zip;
