@@ -1,6 +1,7 @@
 pub mod diagnostics;
 mod parser;
 pub mod util;
+
 use self::parser::parser;
 use crate::util::span_to_range::{RangeConverter, Ranged};
 use chumsky::Parser;
@@ -8,6 +9,7 @@ use color_eyre::eyre::{bail, eyre, Report};
 use lsp_types::Range;
 use ropey::Rope;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NatSpec {
@@ -28,9 +30,9 @@ pub enum NatSpec {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssociatedElement {
-    kind: DeclarationKind,
-    name: String,
-    params: Vec<(String, String)>,
+    pub kind: DeclarationKind,
+    pub name: String,
+    pub params: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,6 +43,20 @@ pub enum DeclarationKind {
     Definition,
     Ghost,
     Methods,
+}
+
+impl Display for DeclarationKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kind = match self {
+            DeclarationKind::Rule => "rule",
+            DeclarationKind::Invariant => "invariant",
+            DeclarationKind::Function => "function",
+            DeclarationKind::Definition => "definition",
+            DeclarationKind::Ghost => "ghost",
+            DeclarationKind::Methods => "methods",
+        };
+        write!(f, "{kind}")
+    }
 }
 
 impl TryFrom<&str> for DeclarationKind {
@@ -118,9 +134,9 @@ impl NatSpec {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DocumentationTag {
-    kind: Tag,
-    description: String,
-    range: Option<Range>,
+    pub kind: Tag,
+    pub description: String,
+    pub range: Option<Range>,
 }
 
 impl DocumentationTag {
@@ -154,6 +170,21 @@ pub enum Tag {
     Return,
     Formula,
     Unexpected(String),
+}
+
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Tag::Title => "title",
+            Tag::Notice => "notice",
+            Tag::Dev => "dev",
+            Tag::Param => "param",
+            Tag::Return => "return",
+            Tag::Formula => "formula",
+            Tag::Unexpected(s) => s.as_str(),
+        };
+        write!(f, "{s}")
+    }
 }
 
 impl Tag {

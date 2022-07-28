@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 chumsky = { git = "https://github.com/zesterer/chumsky" }
-clap = { version = "3.2.14", features = ["cargo", "derive"] }
+clap = { version = "3.2.15", features = ["cargo", "derive"] }
 color-eyre = "0.6.2"
 indoc = "1.0.6"
 itertools = "0.10.3"
