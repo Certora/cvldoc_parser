@@ -1,8 +1,8 @@
 pub mod diagnostics;
-mod parser;
+mod parse;
 pub mod util;
 
-use self::parser::parser;
+use self::parse::parser;
 use crate::util::span_to_range::{RangeConverter, Ranged};
 use chumsky::Parser;
 use color_eyre::eyre::{bail, eyre, Report};

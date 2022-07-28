@@ -31,16 +31,32 @@ fn horizontal_ws<'src>() -> Repeated<OneOf<char, &'src [char; 2], Simple<char>>>
     one_of(HORIZONTAL_WHITESPACE).repeated()
 }
 
-pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error = Simple<char>> {
-    let take_to_newline_or_end = take_until_without_terminator(newline_or_end()).boxed();
+fn take_to_newline_or_end<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
+    take_until_without_terminator(newline_or_end()).boxed()
+}
 
-    let take_to_bracket_or_end = {
-        let bracket_or_end = just("{").or(end().to(""));
-        take_until_without_terminator(bracket_or_end).boxed()
-    };
+fn take_to_starred_terminator<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
+    take_until_without_terminator(just("*/")).boxed()
+}
 
-    let take_to_starred_terminator = take_until_without_terminator(just("*/")).boxed();
+fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
+    let single_line_comment = just("//").then(take_to_newline_or_end());
+    let multi_line_comment = just("/*").then(take_to_starred_terminator());
+    let comments = choice((single_line_comment, multi_line_comment))
+    .padded()
+    .repeated()
+    .padded();
 
+    comments.ignored().boxed()
+}
+
+fn mandatory_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
+    let mandatory_ws = text::whitespace().at_least(1);
+
+    mandatory_ws.ignore_then(optional_token_separator()).boxed()
+}
+
+fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
     let padding_before_header = horizontal_ws()
         .then(just('#'))
         .then(horizontal_ws())
@@ -51,7 +67,7 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
 
     let slashed_header = slashes
         .ignore_then(padding_before_header.clone())
-        .ignore_then(take_to_newline_or_end.clone())
+        .ignore_then(take_to_newline_or_end())
         .collect()
         .map(|line: String| {
             let padding = &[' ', '\t', '/'];
@@ -63,13 +79,12 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
     let slashed_thick_free_form = slashed_header.padded_by(thick_slashed_padding);
 
     let stars = just('*').repeated().at_least(3);
-
     let thick_starred_padding = just('/').then(stars).then(just('/')).then(newline_or_end());
 
     let starred_header = just('/')
         .ignore_then(stars)
-        .ignore_then(padding_before_header.clone())
-        .ignore_then(take_to_starred_terminator.clone())
+        .ignore_then(padding_before_header)
+        .ignore_then(take_to_starred_terminator())
         .then_ignore(newline_or_end())
         .collect()
         .map(|line: String| {
@@ -94,7 +109,7 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
 
     let multi_line_first_line = just('/').then(stars).then(just('\n')).boxed();
     let multi_line_body = take_until(just('#'))
-        .ignore_then(take_to_starred_terminator.clone())
+        .ignore_then(take_to_starred_terminator())
         .then_ignore(newline_or_end())
         .collect()
         .boxed();
@@ -103,22 +118,11 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
         .map(NatSpecBuilder::free_form_multi_line_from_body)
         .boxed();
 
-    let spanned_slashed_line = just("///")
-        .ignore_then(none_of('/').rewind())
-        .ignore_then(horizontal_ws())
-        .ignore_then(
-            take_to_newline_or_end
-                .collect()
-                .map_with_span(|trimmed_line, span| (trimmed_line, span)),
-        )
-        .boxed();
+    choice((free_form_single_line, free_form_multi_line))
+        .boxed()
+}
 
-    let slashed_documentation = spanned_slashed_line.repeated().at_least(1);
-
-    let starred_documentation = just("/**")
-        .then(none_of('*').rewind())
-        .ignore_then(take_to_starred_terminator.map_with_span(builder::split_starred_doc_lines));
-
+fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
     let decl_under_natspec = {
         let decl_kind = text::ident().try_map(|kw: String, span| {
             let kind = kw.as_str().try_into();
@@ -126,18 +130,19 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
         });
         let decl_name = text::ident();
 
-        decl_kind
-            .then_ignore(text::whitespace())
-            .then(decl_name)
-            .padded()
+        let decl = decl_kind
+            .then_ignore(mandatory_token_separator())
+            .then(decl_name);
+
+        decl.padded_by(optional_token_separator())
             .boxed()
     };
 
     let params_under_natspec = {
         let args = text::ident()
-            .then_ignore(text::whitespace())
+            .then_ignore(mandatory_token_separator())
             .then(text::ident())
-            .padded()
+            .padded_by(optional_token_separator())
             .boxed();
 
         args.separated_by(just(','))
@@ -145,23 +150,48 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
             .boxed()
     };
 
-    let under_natspec = decl_under_natspec
+    decl_under_natspec
         .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
-        .then_ignore(take_to_bracket_or_end)
+        .then_ignore(optional_token_separator())
+        .then_ignore(just('{').rewind())
         .map(|((kind, name), params)| UnderDoc(kind, name, params))
-        .padded()
+        .boxed()
+}
+
+fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+    let spanned_slashed_line = just("///")
+        .ignore_then(none_of('/').rewind())
+        .ignore_then(horizontal_ws())
+        .ignore_then(
+            take_to_newline_or_end()
+                .collect()
+                .map_with_span(|trimmed_line, span| (trimmed_line, span)),
+        )
         .boxed();
 
-    let documentation = choice((slashed_documentation, starred_documentation))
-        .then(under_natspec.or_not())
+    let slashed_documentation = spanned_slashed_line
+        .repeated()
+        .at_least(1)
+        .boxed();
+
+    let starred_documentation = just("/**")
+        .then(none_of("*/").rewind())
+        .ignore_then(take_to_starred_terminator().map_with_span(builder::split_starred_doc_lines))
+        .boxed();
+
+    choice([slashed_documentation, starred_documentation])
+        .then(under_doc().or_not())
         .map(
             |(spanned_body, element_under_doc)| NatSpecBuilder::Documentation {
                 spanned_body,
                 element_under_doc,
             },
-        );
+        )
+        .boxed()
+}
 
-    let natspec = choice((free_form_single_line, free_form_multi_line, documentation)).boxed();
+pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error = Simple<char>> {
+    let natspec = choice([free_form_comment(), natspec_doc()]);
 
     natspec
         .recover_with(skip_until(['\n', ' '], |_| NatSpecBuilder::ParseError).consume_end())
@@ -172,8 +202,10 @@ pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error 
 
 #[cfg(test)]
 mod tests {
+    use crate::parse::parser;
     use crate::util::span_to_range::RangeConverter;
-    use crate::{NatSpec, Tag};
+    use crate::{DeclarationKind, NatSpec, Tag};
+    use chumsky::Parser;
     use indoc::indoc;
     use ropey::Rope;
     use std::iter::zip;
@@ -183,6 +215,19 @@ mod tests {
         let (natspecs, _ranges): (Vec<_>, Vec<_>) = NatSpec::from_rope(rope).into_iter().unzip();
 
         natspecs
+    }
+
+    fn compare_params(expected_params: &[(&str, &str)], actual_params: &[(String, String)]) {
+        assert_eq!(
+            expected_params.len(),
+            actual_params.len(),
+            "not all params were parsed"
+        );
+
+        for (expected, actual) in zip(expected_params, actual_params) {
+            assert_eq!(expected.0, actual.0, "parsed param type is different");
+            assert_eq!(expected.1, actual.1, "parsed param name is different");
+        }
     }
 
     #[test]
@@ -331,17 +376,39 @@ mod tests {
         assert_eq!(associated.name, "goodMath");
 
         let expected_params = [("uint", "a"), ("int", "b"), ("string", "c")];
-        let actual_params = &associated.params;
+        compare_params(&expected_params, &associated.params);
+    }
 
-        assert_eq!(
-            expected_params.len(),
-            actual_params.len(),
-            "not all params were parsed"
-        );
+    #[test]
+    fn comments_in_associated_element() {
+        let src = indoc! {"
+            /// this test checks
+            /// that even if you put comments
+            /// in problematic areas,
+            /// parsing still works
+            /**/
+            //lorem ipsum dolor sit amet
+            rule 
+            // asdfasdfasdfasd
+            ofLaw(string //randomtext
+                       lapd
+                       /**
+                        * more random text
+                        */
+                        , string csny
+                               ) { }
+        "};
 
-        for (expected, actual) in zip(expected_params, actual_params) {
-            assert_eq!(expected.0, actual.0, "parsed param type is different");
-            assert_eq!(expected.1, actual.1, "parsed param name is different");
-        }
+        let parsed = parse_src(src);
+        let associated = parsed
+            .first()
+            .and_then(NatSpec::associated_element)
+            .unwrap();
+
+        assert_eq!(associated.kind, DeclarationKind::Rule);
+        assert_eq!(associated.name, "ofLaw");
+
+        let expected_params = [("string", "lapd"), ("string", "csny")];
+        compare_params(&expected_params, &associated.params);
     }
 }
