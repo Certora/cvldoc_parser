@@ -98,25 +98,23 @@ impl DocumentationTag {
 /// currently panics if a file fails to open, or fails to read.
 #[pyfunction]
 fn parse(paths: Vec<&str>) -> Vec<Py<PyAny>> {
-    let natspecs_of_files: Vec<Vec<_>> = paths
+    let natspecs_per_file: Vec<Vec<_>> = paths
         .into_iter()
         .map(natspecs_from_path)
         .try_collect()
         .unwrap(); //TODO: figure out how to deal with errors here
 
     Python::with_gil(|py| {
-        let mut natspecs = Vec::with_capacity(natspecs_of_files.len());
+        natspecs_per_file
+            .into_iter()
+            .map(|file_natspecs| {
+                let elements = file_natspecs
+                    .into_iter()
+                    .map(|natspec| natspec_to_py_object(natspec, py));
 
-        for file_natspecs in natspecs_of_files {
-            let elements = file_natspecs
-                .into_iter()
-                .map(|natspec| natspec_to_py_object(natspec, py));
-
-            let list = PyList::new(py, elements).into_py(py);
-            natspecs.push(list);
-        }
-
-        natspecs
+                PyList::new(py, elements).into_py(py)
+            })
+            .collect()
     })
 }
 
