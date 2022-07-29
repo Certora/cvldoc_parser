@@ -14,6 +14,7 @@ pub enum NatSpecBuilder {
         spanned_body: Vec<Spanned<String>>,
         element_under_doc: Option<UnderDoc>,
     },
+    CommentedOutBlock,
     ParseError,
 }
 
@@ -50,6 +51,7 @@ impl NatSpecBuilder {
 
                 Ok(NatSpec::Documentation { tags, associated })
             }
+            NatSpecBuilder::CommentedOutBlock => bail!("currently commented out code is not parsed"),
             NatSpecBuilder::ParseError => bail!("parse errors can not be converted"),
         }
     }
