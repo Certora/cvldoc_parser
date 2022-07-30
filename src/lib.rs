@@ -33,6 +33,7 @@ pub struct AssociatedElement {
     pub kind: DeclarationKind,
     pub name: String,
     pub params: Vec<(String, String)>,
+    pub block: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,6 +130,16 @@ impl NatSpec {
             }
             _ => None,
         }
+    }
+
+    pub fn is_documentation(&self) -> bool {
+        matches!(
+            self,
+            NatSpec::Documentation {
+                tags: _,
+                associated: _
+            }
+        )
     }
 }
 

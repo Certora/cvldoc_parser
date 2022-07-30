@@ -72,27 +72,30 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
     choice((free_form_single_line, free_form_multi_line)).boxed()
 }
 
-fn single_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
-    just("//").then(take_to_newline_or_end()).ignored()
-}
-
-fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
-    //this is a somewhat tricky parse.
-    //we want to avoid parsing "/**" as a cvl comment, to give priority to starred natspec comments.
-    //however, this creates an edge case.
-    let edge_case_starter = just("/**/");
-    let multi_line_starter = just("/*").then_ignore(none_of('*'));
-
-    choice((edge_case_starter, multi_line_starter))
-        .rewind()
-        .then(take_to_starred_terminator())
-        .ignored()
-}
-
 /// when parsing the block associated with the documentation, we are dealing with
 /// a stream of tokens. tokens may be separated by some combination of whitespace or comments.
 /// since we do not go through a lexing stage that filters them out, we must assume
 /// that they may exist (possibly repeatedly) between any valid token of the associated block.
+fn optional_token_separator_immediately_after_doc<'src>(
+) -> BoxedParser<'src, char, (), Simple<char>> {
+    let single_line_comment_between_tokens = just("//")
+        .then(none_of('/').rewind())
+        .then(take_to_newline_or_end())
+        .ignored();
+
+    //we cannot use the usual multi-line comment parser here, since it is
+    //now allowed to have "/**" as a comment starter.
+    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
+
+    let comment = choice((
+        single_line_comment_between_tokens,
+        multi_line_comment_between_tokens,
+    ))
+    .padded();
+
+    comment.repeated().ignored().padded().boxed()
+}
+
 fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
     //we cannot use the usual multi-line comment parser here, since it is
     //now allowed to have "/**" as a comment starter.
@@ -123,7 +126,10 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
             .then_ignore(mandatory_token_separator())
             .then(decl_name);
 
-        decl.padded_by(optional_token_separator()).boxed()
+        optional_token_separator_immediately_after_doc()
+            .ignore_then(decl)
+            .then_ignore(optional_token_separator())
+            .boxed()
     };
 
     let params_under_natspec = {
@@ -137,14 +143,19 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
             .delimited_by(just('('), just(')'))
             .boxed()
     };
-    // let inner_block = filter(|c| c != '}').delimited_by(just('{'), just('}'));
-    let block_under_natspec = just('{').rewind();
+
+    let block_under_natspec = just('{').rewind().map(String::from); //TODO: implement this
 
     decl_under_natspec
         .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
         .then_ignore(optional_token_separator())
-        .then_ignore(block_under_natspec)
-        .map(|((kind, name), params)| UnderDoc(kind, name, params))
+        .then(block_under_natspec)
+        .map(|(((kind, name), params), block)| UnderDoc {
+            kind,
+            name,
+            params,
+            block,
+        })
         .boxed()
 }
 

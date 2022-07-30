@@ -124,7 +124,7 @@ fn doc_description_with_empty_line() {
              * @title A house for dogs
              * @notice Not for cats
              */
-            function dogHouse() {
+            function dogHouse() { { }
                 string dog;
             }
         "};
@@ -183,7 +183,7 @@ fn comments_in_associated_element() {
             /**/
             //lorem ipsum dolor sit amet
             rule 
-            // asdfasdfasdfasd
+            ///// asdfasdfasdfasd
             ofLaw(string //randomtext
                        lapd
                        /**
@@ -242,4 +242,40 @@ fn commented_out_blocks_are_ignored() {
         parsed.is_empty(),
         "valid NatSpec blocks were parsed from commented out blocks"
     );
+}
+
+#[test]
+fn commented_out_doc_followed_by_non_commented() {
+    let src = indoc! {r#"
+            /// @title the rule associated
+            /// with this doc is commented out,
+            /// so it should be considered as a
+            /// documentation with no associated element
+            // rule foo(method f) {
+            //     env e; calldataarg args;
+            //     // require inRecoveryMode(e); // alternative way, should try both
+            /* */ //
+
+            //     assert !lastReverted, "recovery mode must not fail";
+            // }
+
+
+            ///@title this is another rule with a doc
+            /// this one's associated element is not ,
+            /// commented out and so SHOULD be considered as
+            /// having an associated element.
+            /// furthermore, it should be parsed as a separate documentation
+            /// block from the one above.
+            rule bar(method f) {
+                thank_you_for_playing_wing_commander();
+            }
+        "#};
+
+    let parsed = parse_src(src);
+
+    assert_eq!(parsed.len(), 2);
+    assert!(parsed.iter().all(NatSpec::is_documentation));
+
+    assert!(parsed[0].associated_element().is_none());
+    assert_eq!(parsed[1].associated_element().unwrap().name, "bar");
 }

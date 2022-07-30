@@ -34,3 +34,20 @@ pub(super) fn take_to_starred_terminator<'src>() -> BoxedParser<'src, char, Vec<
 {
     take_until_without_terminator(just("*/")).boxed()
 }
+
+pub(super) fn single_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
+    just("//").then(take_to_newline_or_end()).ignored()
+}
+
+pub(super) fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
+    //this is a somewhat tricky parse.
+    //we want to avoid parsing "/**" as a cvl comment, to give priority to starred natspec comments.
+    //however, this creates an edge case.
+    let edge_case_starter = just("/**/");
+    let multi_line_starter = just("/*").then_ignore(none_of('*'));
+
+    choice((edge_case_starter, multi_line_starter))
+        .rewind()
+        .then(take_to_starred_terminator())
+        .ignored()
+}

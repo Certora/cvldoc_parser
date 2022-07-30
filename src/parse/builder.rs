@@ -19,12 +19,27 @@ pub enum NatSpecBuilder {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnderDoc(pub DeclarationKind, pub String, pub Vec<(String, String)>);
+pub struct UnderDoc {
+    pub kind: DeclarationKind,
+    pub name: String,
+    pub params: Vec<(String, String)>,
+    pub block: String,
+}
 
 impl From<UnderDoc> for AssociatedElement {
     fn from(under: UnderDoc) -> Self {
-        let UnderDoc(kind, name, params) = under;
-        AssociatedElement { kind, name, params }
+        let UnderDoc {
+            kind,
+            name,
+            params,
+            block,
+        } = under;
+        AssociatedElement {
+            kind,
+            name,
+            params,
+            block,
+        }
     }
 }
 
@@ -51,7 +66,9 @@ impl NatSpecBuilder {
 
                 Ok(NatSpec::Documentation { tags, associated })
             }
-            NatSpecBuilder::CommentedOutBlock => bail!("currently commented out code is not parsed"),
+            NatSpecBuilder::CommentedOutBlock => {
+                bail!("currently commented out code is not parsed")
+            }
             NatSpecBuilder::ParseError => bail!("parse errors can not be converted"),
         }
     }
