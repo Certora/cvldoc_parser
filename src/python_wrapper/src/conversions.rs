@@ -19,7 +19,7 @@ impl From<DocumentationTagR> for DocumentationTag {
 }
 
 impl From<AssociatedElementR> for AssociatedElement {
-    fn from(AssociatedElementR { kind, name, params }: AssociatedElementR) -> Self {
+    fn from(AssociatedElementR { kind, name, params, ..}: AssociatedElementR) -> Self {
         AssociatedElement {
             kind: kind.to_string(),
             name,
