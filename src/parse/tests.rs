@@ -124,7 +124,7 @@ fn doc_description_with_empty_line() {
              * @title A house for dogs
              * @notice Not for cats
              */
-            function dogHouse() { { }
+            function dogHouse() { {}
                 string dog;
             }
         "};
@@ -133,7 +133,7 @@ fn doc_description_with_empty_line() {
     let first_tag = parsed
         .first()
         .and_then(NatSpec::tags)
-        .and_then(|tags| tags.first())
+        .and_then(<[_]>::first)
         .unwrap();
 
     assert_eq!(first_tag.kind, Tag::Notice);
@@ -278,4 +278,36 @@ fn commented_out_doc_followed_by_non_commented() {
 
     assert!(parsed[0].associated_element().is_none());
     assert_eq!(parsed[1].associated_element().unwrap().name, "bar");
+}
+
+#[test]
+fn grabbing_blocks() {
+    let src = indoc! {r#"
+            /**
+             * this checks that nested blocks are grabbed
+             */
+            ghost of(Christmas past) { {
+                if (true) {
+                    do_this();
+                } else {
+                    do_that();
+                }
+                {}{}{}{{}}{{{{   }}}}
+            }fizz buzz{}
+        "#};
+
+    let parsed = parse_src(src);
+
+    let block = &parsed[0].associated_element().unwrap().block;
+    assert_eq!(
+        block,
+        indoc! { "{
+        if (true) {
+            do_this();
+        } else {
+            do_that();
+        }
+        {}{}{}{{}}{{{{   }}}}
+    }"}
+    );
 }

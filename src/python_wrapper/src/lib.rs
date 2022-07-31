@@ -68,6 +68,8 @@ pub struct AssociatedElement {
     name: String,
     #[pyo3(get)]
     params: Vec<(String, String)>,
+    #[pyo3(get)]
+    block: String,
 }
 
 #[pymethods]

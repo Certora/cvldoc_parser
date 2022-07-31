@@ -144,7 +144,26 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
             .boxed()
     };
 
-    let block_under_natspec = just('{').rewind().map(String::from); //TODO: implement this
+    //grabs the code block associated with the function,
+    //including any delimiting brackets.
+    //it checks for balanced brackets inside the block, starting
+    //from an opening curly bracket, and keeps going until it 
+    //detects a closing bracket such that the block from the start
+    //is balanced. note this does not validate that the brackets are 
+    //still balanced past the last balanced closing bracket.
+    let block_under_natspec = {
+        let lb = just('{').map(String::from);
+        let rb = just('}').map(String::from);
+        let content = none_of("{}").repeated().at_least(1).map(String::from_iter);
+
+        recursive(|block| {
+            let between = content.or(block).repeated().map(String::from_iter);
+
+            lb.chain(between)
+                .chain(rb)
+                .map(|v: Vec<String>| v.into_iter().collect())
+        })
+    };
 
     decl_under_natspec
         .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
