@@ -51,10 +51,7 @@ fn natspecs_from_path(path: &str) -> Result<Vec<natspec_parser::NatSpec>> {
         Rope::from_str(&data)
     };
 
-    let natspecs = natspec_parser::NatSpec::from_rope(rope)
-        .into_iter()
-        .map(|(natspec, _range)| natspec)
-        .collect();
+    let natspecs = natspec_parser::NatSpec::from_rope(rope);
 
     Ok(natspecs)
 }

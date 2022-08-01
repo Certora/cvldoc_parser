@@ -29,19 +29,25 @@ impl AssociatedElement {
 impl DocumentationTag {}
 
 impl NatSpec {
-    pub fn enumerate_diagnostics(&self, natspec_range: Range) -> Vec<Diagnostic> {
+    pub fn enumerate_diagnostics(&self) -> Vec<Diagnostic> {
         let mut warnings = Vec::new();
-        let mut add = |message: String, range: Option<Range>| {
-            let range = range.unwrap_or(natspec_range);
-            let diag = Diagnostic {
-                range,
-                message,
-                ..Default::default()
-            };
-            warnings.push(diag);
-        };
 
-        if let NatSpec::Documentation { tags, associated } = self {
+        if let NatSpec::Documentation {
+            tags,
+            associated,
+            range: natspec_range,
+        } = self
+        {
+            let mut add = |message: String, range: Option<Range>| {
+                let range = range.unwrap_or(*natspec_range);
+                let diag = Diagnostic {
+                    range,
+                    message,
+                    ..Default::default()
+                };
+                warnings.push(diag);
+            };
+
             if let Some(associated) = associated {
                 if tags.iter().all(|tag| tag.kind != Tag::Notice) {
                     //Any applicable item is missing a notice

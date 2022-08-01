@@ -60,11 +60,11 @@ impl FreeForm {
 
 pub fn natspec_to_py_object(natspec: NatSpecR, py: Python<'_>) -> Py<PyAny> {
     match natspec {
-        NatSpecR::SingleLineFreeForm { header } => FreeForm::without_block(header).into_py(py),
-        NatSpecR::MultiLineFreeForm { header, block } => {
+        NatSpecR::SingleLineFreeForm { header, .. } => FreeForm::without_block(header).into_py(py),
+        NatSpecR::MultiLineFreeForm { header, block, .. } => {
             FreeForm::with_block(header, block).into_py(py)
         }
-        NatSpecR::Documentation { tags, associated } => {
+        NatSpecR::Documentation { tags, associated, .. } => {
             Documentation::from_rust_repr_components(tags, associated).into_py(py)
         }
     }

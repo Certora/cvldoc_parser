@@ -53,9 +53,10 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         starred_single_line_free_form,
         starred_thick_free_form,
     ))
-    .map(|header| NatSpecBuilder::FreeFormComment {
+    .map_with_span(|header, span| NatSpecBuilder::FreeFormComment {
         header,
         block: None,
+        span,
     });
 
     let multi_line_first_line = just('/').then(stars).then(just('\n')).boxed();
@@ -66,7 +67,7 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         .boxed();
     let free_form_multi_line = multi_line_first_line
         .ignore_then(multi_line_body)
-        .map(NatSpecBuilder::free_form_multi_line_from_body)
+        .map_with_span(NatSpecBuilder::free_form_multi_line_from_body_and_span)
         .boxed();
 
     choice((free_form_single_line, free_form_multi_line)).boxed()
@@ -147,9 +148,9 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
     //grabs the code block associated with the function,
     //including any delimiting brackets.
     //it checks for balanced brackets inside the block, starting
-    //from an opening curly bracket, and keeps going until it 
+    //from an opening curly bracket, and keeps going until it
     //detects a closing bracket such that the block from the start
-    //is balanced. note this does not validate that the brackets are 
+    //is balanced. note this does not validate that the brackets are
     //still balanced past the last balanced closing bracket.
     let block_under_natspec = {
         let lb = just('{').map(String::from);
@@ -196,10 +197,13 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
         .ignore_then(take_to_starred_terminator().map_with_span(builder::split_starred_doc_lines))
         .boxed();
 
-    choice([slashed_documentation, starred_documentation])
-        .then(under_doc().or_not())
+    let doc = choice([slashed_documentation, starred_documentation])
+        .map_with_span(|spanned_body, span| (spanned_body, span));
+
+    doc.then(under_doc().or_not())
         .map(
-            |(spanned_body, element_under_doc)| NatSpecBuilder::Documentation {
+            |((spanned_body, span), element_under_doc)| NatSpecBuilder::Documentation {
+                span,
                 spanned_body,
                 element_under_doc,
             },

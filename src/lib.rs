@@ -3,7 +3,7 @@ mod parse;
 pub mod util;
 
 use self::parse::parser;
-use crate::util::span_to_range::{RangeConverter, Ranged};
+use crate::util::span_to_range::RangeConverter;
 use chumsky::Parser;
 use color_eyre::eyre::{bail, eyre, Report};
 use lsp_types::Range;
@@ -15,16 +15,19 @@ use std::fmt::Display;
 pub enum NatSpec {
     SingleLineFreeForm {
         header: String,
+        range: Range,
     },
 
     MultiLineFreeForm {
         header: String,
         block: String,
+        range: Range,
     },
 
     Documentation {
         tags: Vec<DocumentationTag>,
         associated: Option<AssociatedElement>,
+        range: Range,
     },
 }
 
@@ -93,7 +96,7 @@ impl NatSpec {
         }
     }
 
-    pub fn from_rope(rope: Rope) -> Vec<Ranged<NatSpec>> {
+    pub fn from_rope(rope: Rope) -> Vec<NatSpec> {
         let src = rope.to_string();
         let converter = RangeConverter::new(rope);
         let (builders, _) = parser().parse_recovery(src.as_str());
@@ -101,11 +104,7 @@ impl NatSpec {
         builders
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|(builder, span)| {
-                let natspec = builder.build_with_converter(converter.clone()).ok()?;
-                let range = converter.to_range(span);
-                Some((natspec, range))
-            })
+            .filter_map(|(builder, _)| builder.build_with_converter(converter.clone()).ok())
             .collect()
     }
 
@@ -133,13 +132,7 @@ impl NatSpec {
     }
 
     pub fn is_documentation(&self) -> bool {
-        matches!(
-            self,
-            NatSpec::Documentation {
-                tags: _,
-                associated: _
-            }
-        )
+        matches!(self, NatSpec::Documentation { .. })
     }
 }
 

@@ -1,14 +1,13 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{DeclarationKind, NatSpec, Tag};
 use indoc::indoc;
+use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
 
 fn parse_src(src: &str) -> Vec<NatSpec> {
     let rope = Rope::from_str(src);
-    let (natspecs, _ranges): (Vec<_>, Vec<_>) = NatSpec::from_rope(rope).into_iter().unzip();
-
-    natspecs
+    NatSpec::from_rope(rope)
 }
 
 fn compare_params(expected_params: &[(&str, &str)], actual_params: &[(String, String)]) {
@@ -52,23 +51,34 @@ fn free_form_comments() {
         parsed,
         vec![
             NatSpec::SingleLineFreeForm {
-                header: "Section example".to_string()
+                header: "Section example".to_string(),
+                range: range_from((0, 0), (1, 0))
             },
             NatSpec::SingleLineFreeForm {
-                header: "Centered example".to_string()
+                header: "Centered example".to_string(),
+                range: range_from((2, 0), (3, 0))
             },
             NatSpec::SingleLineFreeForm {
-                header: "Thick centered example".to_string()
+                header: "Thick centered example".to_string(),
+                range: range_from((4, 0), (7, 0))
             },
             NatSpec::SingleLineFreeForm {
-                header: "Thick example".to_string()
+                header: "Thick example".to_string(),
+                range: range_from((8, 0), (11, 0))
             },
             NatSpec::MultiLineFreeForm {
                 header: "Multiline example".to_string(),
-                block: "Additional detail\nand more info".to_string()
+                block: "Additional detail\nand more info".to_string(),
+                range: range_from((12, 0), (17, 0))
             },
         ]
     )
+}
+
+fn range_from((s_line, s_character): (u32, u32), (e_line, e_character): (u32, u32)) -> Range {
+    let start = Position::new(s_line, s_character);
+    let end = Position::new(e_line, e_character);
+    Range::new(start, end)
 }
 
 #[test]
@@ -86,7 +96,7 @@ fn doc_tag_spans_match_source() {
 
     let rope = Rope::from_str(src);
     let converter = RangeConverter::new(rope.clone());
-    let (natspecs, _ranges): (Vec<_>, Vec<_>) = NatSpec::from_rope(rope).into_iter().unzip();
+    let natspecs: Vec<_> = NatSpec::from_rope(rope);
 
     let tags = natspecs.first().and_then(NatSpec::tags).unwrap();
     let tag_kinds: Vec<_> = tags.iter().map(|doc_tag| doc_tag.kind.clone()).collect();
@@ -286,7 +296,7 @@ fn grabbing_blocks() {
             /**
              * this checks that nested blocks are grabbed
              */
-            ghost of(Christmas past) { {
+            ghost of(Christmas past) {
                 if (true) {
                     do_this();
                 } else {

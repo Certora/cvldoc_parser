@@ -4,7 +4,6 @@ use color_eyre::eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
 use itertools::Itertools;
-use natspec_parser::util::span_to_range::Ranged;
 use natspec_parser::NatSpec;
 use ropey::Rope;
 use serde_json::to_string_pretty;
@@ -39,7 +38,7 @@ fn main() -> Result<()> {
     for (file_name, natspecs) in file_names_and_natspecs {
         println!("For file {file_name}, found natspecs:");
 
-        for (natspec, _) in natspecs {
+        for natspec in natspecs {
             let json = to_string_pretty(&natspec).wrap_err("failed to serialize natspec")?;
             println!("{json}");
         }
@@ -48,7 +47,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn name_and_natspec(path: PathBuf) -> Result<(String, Vec<Ranged<NatSpec>>)> {
+fn name_and_natspec(path: PathBuf) -> Result<(String, Vec<NatSpec>)> {
     let file_name = path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())

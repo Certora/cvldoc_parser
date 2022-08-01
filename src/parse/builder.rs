@@ -9,10 +9,12 @@ pub enum NatSpecBuilder {
     FreeFormComment {
         header: String,
         block: Option<String>,
+        span: Span,
     },
     Documentation {
         spanned_body: Vec<Spanned<String>>,
         element_under_doc: Option<UnderDoc>,
+        span: Span,
     },
     CommentedOutBlock,
     ParseError,
@@ -27,13 +29,14 @@ pub struct UnderDoc {
 }
 
 impl From<UnderDoc> for AssociatedElement {
-    fn from(under: UnderDoc) -> Self {
-        let UnderDoc {
+    fn from(
+        UnderDoc {
             kind,
             name,
             params,
             block,
-        } = under;
+        }: UnderDoc,
+    ) -> Self {
         AssociatedElement {
             kind,
             name,
@@ -46,25 +49,34 @@ impl From<UnderDoc> for AssociatedElement {
 impl NatSpecBuilder {
     pub fn build_with_converter(self, converter: RangeConverter) -> Result<NatSpec, Report> {
         match self {
-            NatSpecBuilder::FreeFormComment { header, block } => {
+            NatSpecBuilder::FreeFormComment {
+                header,
+                block,
+                span,
+            } => {
+                let range = converter.to_range(span);
                 let free_form = match block {
-                    Some(block) => NatSpec::MultiLineFreeForm { header, block },
-                    _ => NatSpec::SingleLineFreeForm { header },
+                    Some(block) => NatSpec::MultiLineFreeForm { header, block, range },
+                    _ => NatSpec::SingleLineFreeForm { header, range },
                 };
+
                 Ok(free_form)
             }
             NatSpecBuilder::Documentation {
                 spanned_body,
                 element_under_doc,
+                span,
             } => {
                 if spanned_body.is_empty() {
                     bail!("documentation has no body");
                 }
-                let tags = NatSpecBuilder::process_doc_body(&spanned_body, converter);
+                let tags = NatSpecBuilder::process_doc_body(&spanned_body, converter.clone());
 
                 let associated = element_under_doc.map(AssociatedElement::from);
 
-                Ok(NatSpec::Documentation { tags, associated })
+                let range = converter.to_range(span);
+
+                Ok(NatSpec::Documentation { tags, associated, range })
             }
             NatSpecBuilder::CommentedOutBlock => {
                 bail!("currently commented out code is not parsed")
@@ -141,7 +153,7 @@ impl NatSpecBuilder {
         tags
     }
 
-    pub(super) fn free_form_multi_line_from_body(body: String) -> NatSpecBuilder {
+    pub(super) fn free_form_multi_line_from_body_and_span(body: String, span: Span) -> NatSpecBuilder {
         let padding: &[_] = &[' ', '\t', '*', '\n'];
         let mut lines = body.lines().map(|line| line.trim_matches(padding));
 
@@ -160,7 +172,7 @@ impl NatSpecBuilder {
             }
         };
 
-        NatSpecBuilder::FreeFormComment { header, block }
+        NatSpecBuilder::FreeFormComment { span, header, block }
     }
 }
 
