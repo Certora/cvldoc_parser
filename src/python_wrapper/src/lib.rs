@@ -1,44 +1,12 @@
-mod conversions;
+mod wrapper_structs;
 
 use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
-use conversions::natspec_to_py_object;
 use itertools::Itertools;
 use pyo3::{prelude::*, types::PyList};
 use ropey::Rope;
 use std::{fs::File, io::Read};
-
-#[derive(Debug, Clone)]
-#[pyclass]
-pub struct Documentation {
-    #[pyo3(get)]
-    pub tags: Vec<DocumentationTag>,
-    #[pyo3(get)]
-    pub associated: Option<AssociatedElement>,
-}
-
-#[derive(Debug, Clone)]
-#[pyclass]
-pub struct FreeForm {
-    #[pyo3(get)]
-    pub header: String,
-    #[pyo3(get)]
-    pub block: Option<String>,
-}
-
-#[pymethods]
-impl Documentation {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-}
-
-#[pymethods]
-impl FreeForm {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-}
+use wrapper_structs::conversions::natspec_to_py_object;
 
 fn natspecs_from_path(path: &str) -> Result<Vec<natspec_parser::NatSpec>> {
     let mut file = File::open(&path).wrap_err_with(|| format!("file does not exist: {path}"))?;
@@ -54,42 +22,6 @@ fn natspecs_from_path(path: &str) -> Result<Vec<natspec_parser::NatSpec>> {
     let natspecs = natspec_parser::NatSpec::from_rope(rope);
 
     Ok(natspecs)
-}
-
-#[derive(Debug, Clone)]
-#[pyclass]
-pub struct AssociatedElement {
-    #[pyo3(get)]
-    kind: String,
-    #[pyo3(get)]
-    name: String,
-    #[pyo3(get)]
-    params: Vec<(String, String)>,
-    #[pyo3(get)]
-    block: String,
-}
-
-#[pymethods]
-impl AssociatedElement {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-}
-
-#[derive(Debug, Clone)]
-#[pyclass]
-pub struct DocumentationTag {
-    #[pyo3(get)]
-    kind: String,
-    #[pyo3(get)]
-    description: String,
-}
-
-#[pymethods]
-impl DocumentationTag {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
 }
 
 /// takes a list of file paths as strings, returns a list of parsed natspecs for each path,

@@ -56,7 +56,11 @@ impl NatSpecBuilder {
             } => {
                 let range = converter.to_range(span);
                 let free_form = match block {
-                    Some(block) => NatSpec::MultiLineFreeForm { header, block, range },
+                    Some(block) => NatSpec::MultiLineFreeForm {
+                        header,
+                        block,
+                        range,
+                    },
                     _ => NatSpec::SingleLineFreeForm { header, range },
                 };
 
@@ -76,7 +80,11 @@ impl NatSpecBuilder {
 
                 let range = converter.to_range(span);
 
-                Ok(NatSpec::Documentation { tags, associated, range })
+                Ok(NatSpec::Documentation {
+                    tags,
+                    associated,
+                    range,
+                })
             }
             NatSpecBuilder::CommentedOutBlock => {
                 bail!("currently commented out code is not parsed")
@@ -153,7 +161,10 @@ impl NatSpecBuilder {
         tags
     }
 
-    pub(super) fn free_form_multi_line_from_body_and_span(body: String, span: Span) -> NatSpecBuilder {
+    pub(super) fn free_form_multi_line_from_body_and_span(
+        body: String,
+        span: Span,
+    ) -> NatSpecBuilder {
         let padding: &[_] = &[' ', '\t', '*', '\n'];
         let mut lines = body.lines().map(|line| line.trim_matches(padding));
 
@@ -172,7 +183,11 @@ impl NatSpecBuilder {
             }
         };
 
-        NatSpecBuilder::FreeFormComment { span, header, block }
+        NatSpecBuilder::FreeFormComment {
+            span,
+            header,
+            block,
+        }
     }
 }
 
