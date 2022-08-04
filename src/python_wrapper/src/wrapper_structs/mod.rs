@@ -126,4 +126,28 @@ impl DocumentationTag {
     fn __repr__(&self) -> String {
         format!("{self:?}")
     }
+
+    pub fn param_name(&self) -> Option<String> {
+        if self.kind == "param" {
+            let ws_start = self.description.find(|c: char| c.is_ascii_whitespace())?;
+            let param_name = &self.description[..ws_start];
+            Some(param_name.to_string())
+        } else {
+            None
+        }
+    }
+
+    pub fn param_description(&self) -> Option<String> {
+        if self.kind == "param" {
+            let param_description: String = self
+                .description
+                .chars()
+                .skip_while(|c| !c.is_ascii_whitespace())
+                .skip_while(|c| c.is_ascii_whitespace())
+                .collect();
+            Some(param_description)
+        } else {
+            None
+        }
+    }
 }
