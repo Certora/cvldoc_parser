@@ -308,7 +308,11 @@ fn grabbing_blocks() {
 
     let parsed = parse_src(src);
 
-    let block = &parsed[0].associated_element().unwrap().block;
+    let block = parsed[0]
+        .associated_element()
+        .and_then(|elem| elem.block.as_ref())
+        .expect("could not capture code block");
+
     assert_eq!(
         block,
         indoc! { "{

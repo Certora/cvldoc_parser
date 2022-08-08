@@ -36,7 +36,7 @@ pub struct AssociatedElement {
     pub kind: DeclarationKind,
     pub name: String,
     pub params: Vec<(String, String)>,
-    pub block: String,
+    pub block: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

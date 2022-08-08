@@ -59,7 +59,7 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         span,
     });
 
-    let multi_line_first_line = just('/').then(stars).then(just('\n')).boxed();
+    let multi_line_first_line = just('/').then(stars).then(newline()).boxed();
     let multi_line_body = take_until(just('#'))
         .ignore_then(take_to_starred_terminator())
         .then_ignore(newline_or_end())
@@ -145,31 +145,12 @@ fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
             .boxed()
     };
 
-    //grabs the code block associated with the function,
-    //including any delimiting brackets.
-    //it checks for balanced brackets inside the block, starting
-    //from an opening curly bracket, and keeps going until it
-    //detects a closing bracket such that the block from the start
-    //is balanced. note this does not validate that the brackets are
-    //still balanced past the last balanced closing bracket.
-    let block_under_natspec = {
-        let lb = just('{').map(String::from);
-        let rb = just('}').map(String::from);
-        let content = none_of("{}").repeated().at_least(1).map(String::from_iter);
-
-        recursive(|block| {
-            let between = content.or(block).repeated().map(String::from_iter);
-
-            lb.chain(between)
-                .chain(rb)
-                .map(|v: Vec<String>| v.into_iter().collect())
-        })
-    };
+    let optional_block = balanced_brackets().map(Option::Some).or(just(';').to(None));
 
     decl_under_natspec
         .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
         .then_ignore(optional_token_separator())
-        .then(block_under_natspec)
+        .then(optional_block)
         .map(|(((kind, name), params), block)| UnderDoc {
             kind,
             name,

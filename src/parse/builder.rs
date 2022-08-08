@@ -25,7 +25,7 @@ pub struct UnderDoc {
     pub kind: DeclarationKind,
     pub name: String,
     pub params: Vec<(String, String)>,
-    pub block: String,
+    pub block: Option<String>,
 }
 
 impl From<UnderDoc> for AssociatedElement {
