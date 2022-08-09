@@ -3,7 +3,7 @@ pub mod conversions;
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct Documentation {
     #[pyo3(get)]
     pub tags: Vec<DocumentationTag>,
@@ -14,9 +14,11 @@ pub struct Documentation {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct Range {
+    #[pyo3(get)]
     pub start: Position,
+    #[pyo3(get)]
     pub end: Position,
 }
 
@@ -28,9 +30,11 @@ impl Range {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct Position {
+    #[pyo3(get)]
     pub line: u32,
+    #[pyo3(get)]
     pub character: u32,
 }
 
@@ -42,10 +46,13 @@ impl Position {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct Diagnostic {
+    #[pyo3(get)]
     pub range: Range,
+    #[pyo3(get)]
     pub description: String,
+    #[pyo3(get)]
     pub severity: Severity,
 }
 
@@ -57,14 +64,14 @@ impl Diagnostic {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub enum Severity {
     Warning,
     Error,
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct FreeForm {
     #[pyo3(get)]
     pub header: String,
@@ -105,7 +112,7 @@ impl FreeForm {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct AssociatedElement {
     #[pyo3(get)]
     pub kind: String,
@@ -125,7 +132,7 @@ impl AssociatedElement {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass]
+#[pyclass(module="natspec_parser")]
 pub struct DocumentationTag {
     #[pyo3(get)]
     pub kind: String,
