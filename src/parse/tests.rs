@@ -1,6 +1,5 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{DeclarationKind, NatSpec, Tag};
-use chumsky::Parser;
 use indoc::indoc;
 use lsp_types::{Position, Range};
 use ropey::Rope;
@@ -303,7 +302,7 @@ fn grabbing_blocks() {
             /**
              * this checks that nested blocks are grabbed
              */
-            ghost of(Christmas past) {
+            function of(Christmas past) {
                 if (true) {
                     do_this();
                 } else {
@@ -333,18 +332,19 @@ fn grabbing_blocks() {
     );
 }
 
-#[test]
-fn invariants() {
-    let src = indoc! {r#"
-        /**
-        * some stuff
-        * @title A house for dogs
-        * @param fizz this param does not exist
-        */
-        invariant streamHasSenderAndRecipient(uint256 streamId)
-    getStreamExists(streamId) => getStreamRecipient(streamId) != 0 && getStreamSender(streamId) != 0
-    "#};
+// #[test]
+// fn invariants() {
+//     let src = indoc! {r#"
+//         /**
+//         * some stuff
+//         * @title A house for dogs
+//         * @param fizz this param does not exist
+//         */
+//         // an invariant to assume, proven separately
+// definition delegate_and_count_inv(address u, uint8 type) returns bool =
+// 	(u != 0 && getDelegatee(u, type) != 0 && getDelegatee(u, type) != u) => ((type == VOTING_POWER() => _votingSnapshotsCounts(u) > 0) && (type == PROPOSITION_POWER() => getPropositionPowerSnapshotCount(u) > 0));
+//     "#};
 
-    let parsed = parse_src(src);
-    dbg!(parsed[0].associated_element().unwrap());
-}
+//     let parsed = parse_src(src);
+//     dbg!(parsed[0].associated_element().unwrap());
+// }
