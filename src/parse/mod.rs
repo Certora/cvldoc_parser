@@ -2,7 +2,7 @@ mod associated_element;
 pub mod builder;
 mod helpers;
 
-use self::{associated_element::under_doc, builder::UnderDoc};
+use self::associated_element::associated_element;
 use crate::util::span_to_range::Spanned;
 use builder::NatSpecBuilder;
 use chumsky::prelude::*;
@@ -101,7 +101,7 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
     let doc = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
-    doc.then(under_doc().or_not())
+    doc.then(associated_element().or_not())
         .map(
             |((spanned_body, span), element_under_doc)| NatSpecBuilder::Documentation {
                 span,

@@ -1,8 +1,5 @@
-use chumsky::text::ident;
-
-use crate::DeclarationKind;
-
 use super::*;
+use crate::{AssociatedElement, ParamList};
 
 /// according to the grammar, it is required to have some amount of whitespace immediately after
 /// some tokens. however, this may again be followed by comments.
@@ -48,11 +45,8 @@ fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>>
 
 fn param_filters<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
     just("filtered")
-        .then(take_until(just('}')))
-        .map(|(keyword, (block, rb))| {
-            let block = String::from_iter(block);
-            format!("{keyword}{block}{rb}")
-        })
+        .ignore_then(optional_token_separator())
+        .ignore_then(balanced_curly_brackets())
         .boxed()
 }
 
@@ -61,7 +55,6 @@ fn ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
     text::ident().boxed()
 }
 
-type ParamList = Vec<(String, String)>;
 type TyList = Vec<String>;
 
 fn param_list<'src>() -> BoxedParser<'src, char, ParamList, Simple<char>> {
@@ -85,58 +78,60 @@ fn ty_list<'src>() -> BoxedParser<'src, char, TyList, Simple<char>> {
         .boxed()
 }
 
-fn invariant_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
+fn invariant_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    let invariant_start = just("invariant").then(mandatory_token_separator());
+
     //temporary workaround. parsing this is hard. this is ambiguous after the parameter decl.
-    let proof_filtered_then_block = take_until(param_filters())
+    // let invariant_filtered_then_block = take_until(param_filters())
+    //     .ignore_then(optional_token_separator())
+    //     .ignore_then(balanced_curly_brackets());
+    // let invariant_then_block = take_until(balanced_curly_brackets()).map(|(_proof, block)| block);
+    // let ending = invariant_filtered_then_block.or(invariant_then_block);
+
+    invariant_start
+        .ignore_then(decl_name())
+        .then_ignore(optional_token_separator())
+        .then(param_list())
+        .map(|(name, params)| AssociatedElement::Invariant {
+            name,
+            params,
+            invariant: String::new(),
+            block: String::new(),
+        })
+        .boxed()
+}
+
+fn methods_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    let methods_start = just("methods").then(mandatory_token_separator());
+
+    methods_start
         .ignore_then(optional_token_separator())
-        .ignore_then(balanced_curly_brackets());
-    let proof_then_block = take_until(balanced_curly_brackets()).map(|(_proof, block)| block);
-    let ending = proof_filtered_then_block.or(proof_then_block);
-    let kind = just("invariant").to(DeclarationKind::Invariant);
-
-    kind.then_ignore(mandatory_token_separator())
-        .then(text::ident())
-        .then_ignore(optional_token_separator())
-        .then(param_list())
-        .then(mandatory_token_separator().ignore_then(ending).or_not())
-        .map(|(((kind, name), params), block)| UnderDoc {
-            kind,
-            name: Some(name),
-            params,
-            block,
-        })
+        .ignore_then(balanced_curly_brackets())
+        .map(|block| AssociatedElement::Methods { block })
         .boxed()
 }
 
-fn methods_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    just("methods")
-        .to(DeclarationKind::Methods)
-        .then_ignore(optional_token_separator())
-        .then(balanced_curly_brackets())
-        .map(|(kind, block)| UnderDoc {
-            kind,
-            name: None,
-            params: Vec::new(),
-            block: Some(block),
-        })
-        .boxed()
-}
+fn rule_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    let rule_start = just("rule").then(mandatory_token_separator());
 
-fn rule_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    let keyword = just("rule").to(DeclarationKind::Rule);
-    keyword
-        .then_ignore(mandatory_token_separator())
-        .then(decl_name())
-        .then_ignore(param_filters().then(optional_token_separator()).or_not())
+    rule_start
+        .ignore_then(decl_name())
         .then(param_list())
         .then_ignore(optional_token_separator())
+        .then(
+            param_filters()
+                .or_not()
+                .then_ignore(optional_token_separator()),
+        )
         .then(balanced_curly_brackets())
-        .map(|(((kind, name), params), block)| UnderDoc {
-            kind,
-            name: Some(name),
-            params,
-            block: Some(block),
-        })
+        .map(
+            |(((name, params), filters), block)| AssociatedElement::Rule {
+                name,
+                params,
+                filters,
+                block,
+            },
+        )
         .boxed()
 }
 
@@ -165,43 +160,40 @@ fn mapping_ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
         .boxed()
 }
 
-fn ghost_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    let kind = just("ghost").to(DeclarationKind::Ghost);
+fn ghost_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
     let optional_block = balanced_curly_brackets().map(Some).or(just(';').to(None));
+    let ghost_start = just("ghost").then(mandatory_token_separator());
 
-    let ghost_with_mapping = kind
-        .then_ignore(mandatory_token_separator())
-        .then(mapping_ty())
-        .then_ignore(mandatory_token_separator())
-        .then(ident())
-        .then_ignore(optional_token_separator())
-        .then(optional_block.clone())
-        .map(|(((kind, _mapping_ty), name), block)| UnderDoc {
-            kind,
-            name: Some(name),
-            params: Vec::new(),
-            block,
-        });
-    let ghost_without_mapping = kind
+    let with_mapping = mapping_ty()
         .then_ignore(mandatory_token_separator())
         .then(decl_name())
         .then_ignore(optional_token_separator())
-        .then(ty_list())
-        .then_ignore(optional_token_separator())
-        .then_ignore(returns_type())
-        .then_ignore(optional_token_separator())
         .then(optional_block.clone())
-        .map(|(((kind, name), _ty_list), block)| UnderDoc {
-            kind,
-            name: Some(name),
-            params: Vec::new(),
+        .map(|((mapping, name), block)| AssociatedElement::GhostMapping {
+            name,
+            mapping,
             block,
         });
 
-    ghost_with_mapping.or(ghost_without_mapping).boxed()
-    // keyword
-    //     .then_ignore(mandatory_token_separator())
-    //     .then(decl_name())
+    let without_mapping = decl_name()
+        .then_ignore(optional_token_separator())
+        .then(ty_list())
+        .then_ignore(optional_token_separator())
+        .then(returns_type())
+        .then_ignore(optional_token_separator())
+        .then(optional_block)
+        .map(
+            |(((name, ty_list), returns), block)| AssociatedElement::Ghost {
+                name,
+                ty_list,
+                returns,
+                block,
+            },
+        );
+
+    ghost_start
+        .ignore_then(with_mapping.or(without_mapping))
+        .boxed()
 }
 
 fn returns_type<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
@@ -215,46 +207,57 @@ fn decl_name() -> impl Parser<char, String, Error = Simple<char>> {
     text::ident()
 }
 
-fn function_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    let kind = just("function").to(DeclarationKind::Function);
-    kind.then_ignore(mandatory_token_separator())
-        .then(decl_name())
+fn function_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    let function_start = just("function").then(mandatory_token_separator());
+
+    function_start
+        .ignore_then(decl_name())
         .then_ignore(optional_token_separator())
         .then(param_list())
         .then_ignore(optional_token_separator())
-        .then_ignore(returns_type().then(optional_token_separator()).or_not())
+        .then(
+            returns_type()
+                .or_not()
+                .then_ignore(optional_token_separator()),
+        )
         .then(balanced_curly_brackets())
-        .map(|(((kind, name), params), block)| UnderDoc {
-            kind,
-            name: Some(name),
-            params,
-            block: Some(block),
-        })
+        .map(
+            |(((name, params), returns), block)| AssociatedElement::Function {
+                name,
+                params,
+                returns,
+                block,
+            },
+        )
         .boxed()
 }
 
-fn definition_decl<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    let kind = just("definition").to(DeclarationKind::Definition);
-    kind.then_ignore(mandatory_token_separator())
-        .then(decl_name())
+fn definition_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    let kind = just("definition");
+    let before_definition = just('=').padded_by(optional_token_separator());
+    let definition = take_until_without_terminator(just(';')).collect();
+
+    kind.ignore_then(mandatory_token_separator())
+        .ignore_then(decl_name())
         .then_ignore(optional_token_separator())
         .then(param_list())
         .then_ignore(optional_token_separator())
-        .then_ignore(returns_type())
-        .then_ignore(optional_token_separator())
-        .then_ignore(just('='))
-        .then_ignore(optional_token_separator())
-        .then(take_until_without_terminator(just(';')).collect())
-        .map(|(((kind, name), params), definition)| UnderDoc {
-            kind,
-            name: Some(name),
-            params,
-            block: Some(definition),
-        })
+        .then(returns_type())
+        .then_ignore(before_definition)
+        .then(definition)
+        .map(
+            |(((name, params), returns), definition)| AssociatedElement::Definition {
+                name,
+                params,
+                returns,
+                definition,
+            },
+        )
         .boxed()
 }
 
-pub(super) fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
+pub(super) fn associated_element<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>>
+{
     let decl = choice([
         rule_decl(),
         methods_decl(),

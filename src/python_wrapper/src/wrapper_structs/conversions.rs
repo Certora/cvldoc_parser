@@ -45,23 +45,17 @@ impl From<DocumentationTag> for DocumentationTagR {
 }
 
 impl From<AssociatedElementR> for AssociatedElement {
-    fn from(
-        AssociatedElementR {
-            kind,
-            name,
-            params,
-            block,
-        }: AssociatedElementR,
-    ) -> Self {
+    fn from(associated: AssociatedElementR) -> Self {
         AssociatedElement {
-            kind: kind.to_string(),
-            name,
-            params,
-            block,
+            kind: associated.to_string(),
+            name: associated.name().map(String::from).unwrap_or_default(),
+            params: associated.params().cloned().unwrap_or_default(),
+            block: associated.block().map(String::from),
         }
     }
 }
 
+/// this is unsound and just plain wrong. run far away and don't look back.
 impl From<AssociatedElement> for AssociatedElementR {
     fn from(
         AssociatedElement {
@@ -71,11 +65,41 @@ impl From<AssociatedElement> for AssociatedElementR {
             block,
         }: AssociatedElement,
     ) -> Self {
-        AssociatedElementR {
-            kind: kind.as_str().try_into().unwrap(),
-            name,
-            params,
-            block,
+        match kind.as_str() {
+            "rule" => AssociatedElementR::Rule {
+                name,
+                params,
+                filters: None,
+                block: String::new(),
+            },
+            "invariant" => AssociatedElementR::Invariant {
+                name,
+                params,
+                invariant: String::new(),
+                block: block.unwrap_or_default(),
+            },
+            "function" => AssociatedElementR::Function {
+                name,
+                params,
+                returns: None,
+                block: block.unwrap_or_default(),
+            },
+            "definition" => AssociatedElementR::Definition {
+                name,
+                params,
+                returns: String::new(),
+                definition: String::new(),
+            },
+            "ghost" => AssociatedElementR::Ghost {
+                name,
+                ty_list: Vec::new(),
+                returns: String::new(),
+                block,
+            },
+            "methods" => AssociatedElementR::Methods {
+                block: block.unwrap_or_default(),
+            },
+            _ => unreachable!(),
         }
     }
 }

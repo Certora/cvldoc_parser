@@ -1,5 +1,5 @@
 use crate::util::span_to_range::RangeConverter;
-use crate::{DeclarationKind, NatSpec, Tag};
+use crate::{AssociatedElement, NatSpec, ParamList, Tag};
 use indoc::indoc;
 use lsp_types::{Position, Range};
 use ropey::Rope;
@@ -10,7 +10,7 @@ fn parse_src(src: &str) -> Vec<NatSpec> {
     NatSpec::from_rope(rope)
 }
 
-fn compare_params(expected_params: &[(&str, &str)], actual_params: &[(String, String)]) {
+fn compare_params(expected_params: &[(&str, &str)], actual_params: &ParamList) {
     assert_eq!(
         expected_params.len(),
         actual_params.len(),
@@ -177,10 +177,10 @@ fn parsing_params() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert_eq!(associated.name.clone().unwrap(), "goodMath");
+    assert_eq!(associated.name().unwrap(), "goodMath");
 
     let expected_params = [("uint", "a"), ("int", "b"), ("string", "c")];
-    compare_params(&expected_params, &associated.params);
+    compare_params(&expected_params, associated.params().unwrap());
 }
 
 #[test]
@@ -209,11 +209,11 @@ fn comments_in_associated_element() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert_eq!(associated.kind, DeclarationKind::Rule);
-    assert_eq!(associated.name.clone().unwrap(), "ofLaw");
+    assert!(matches!(associated, AssociatedElement::Rule { .. }));
+    assert_eq!(associated.name().unwrap(), "ofLaw");
 
     let expected_params = [("string", "lapd"), ("string", "csny")];
-    compare_params(&expected_params, &associated.params);
+    compare_params(&expected_params, associated.params().unwrap());
 }
 
 #[test]
@@ -290,7 +290,7 @@ fn commented_out_doc_followed_by_non_commented() {
     assert_eq!(
         parsed[1]
             .associated_element()
-            .and_then(|associated| associated.name.as_ref())
+            .and_then(AssociatedElement::name)
             .unwrap(),
         "bar"
     );
@@ -316,7 +316,7 @@ fn grabbing_blocks() {
 
     let block = parsed[0]
         .associated_element()
-        .and_then(|elem| elem.block.as_ref())
+        .and_then(AssociatedElement::block)
         .expect("could not capture code block");
 
     assert_eq!(
@@ -331,20 +331,3 @@ fn grabbing_blocks() {
     }"}
     );
 }
-
-// #[test]
-// fn invariants() {
-//     let src = indoc! {r#"
-//         /**
-//         * some stuff
-//         * @title A house for dogs
-//         * @param fizz this param does not exist
-//         */
-//         // an invariant to assume, proven separately
-// definition delegate_and_count_inv(address u, uint8 type) returns bool =
-// 	(u != 0 && getDelegatee(u, type) != 0 && getDelegatee(u, type) != u) => ((type == VOTING_POWER() => _votingSnapshotsCounts(u) > 0) && (type == PROPOSITION_POWER() => getPropositionPowerSnapshotCount(u) > 0));
-//     "#};
-
-//     let parsed = parse_src(src);
-//     dbg!(parsed[0].associated_element().unwrap());
-// }

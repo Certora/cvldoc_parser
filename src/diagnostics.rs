@@ -1,32 +1,37 @@
-use crate::{AssociatedElement, DeclarationKind, DocumentationTag, NatSpec, Tag};
+use crate::{AssociatedElement, NatSpec, Tag};
 use lsp_types::{Diagnostic, DiagnosticSeverity, Range};
 
-impl Tag {
-    fn supported_declarations(&self) -> &[DeclarationKind] {
-        use DeclarationKind::*;
+impl AssociatedElement {
+    fn supported_tags(&self) -> &[Tag] {
+        use Tag::*;
         match self {
-            Tag::Title => &[Rule, Invariant],
-            Tag::Notice => &[Rule, Invariant, Function, Definition, Ghost, Methods],
-            Tag::Dev => &[Rule, Invariant, Function, Definition, Ghost, Methods],
-            Tag::Param => &[Rule, Invariant, Function, Definition, Ghost],
-            Tag::Return => &[Function, Definition, Ghost],
-            Tag::Formula => &[Rule],
-            _ => &[],
+            AssociatedElement::Rule { .. } => &[Title, Notice, Dev, Param, Formula],
+            AssociatedElement::Invariant { .. } => &[Title, Notice, Dev, Param],
+            AssociatedElement::Function { .. } => &[Notice, Dev, Param, Return],
+            AssociatedElement::Definition { .. } => &[Notice, Dev, Param, Return],
+            AssociatedElement::Ghost { .. } | AssociatedElement::GhostMapping { .. } => {
+                &[Notice, Dev, Param, Return]
+            }
+            AssociatedElement::Methods { .. } => &[Notice, Dev],
         }
     }
 
-    fn supports(&self, declaration_kind: DeclarationKind) -> bool {
-        self.supported_declarations().contains(&declaration_kind)
+    fn supports(&self, tag: &Tag) -> bool {
+        self.supported_tags().contains(tag)
     }
-}
 
-impl AssociatedElement {
     fn defines_param(&self, param: &str) -> bool {
-        self.params.iter().any(|(_, name)| name == param)
+        match self {
+            AssociatedElement::Rule { params, .. }
+            | AssociatedElement::Invariant { params, .. }
+            | AssociatedElement::Function { params, .. }
+            | AssociatedElement::Definition { params, .. } => {
+                params.iter().any(|(_, name)| name == param)
+            }
+            _ => false,
+        }
     }
 }
-
-impl DocumentationTag {}
 
 impl NatSpec {
     pub fn enumerate_diagnostics(&self) -> Vec<Diagnostic> {
@@ -72,10 +77,9 @@ impl NatSpec {
                     }
                 }
 
-                let decl_kind = associated.kind;
                 for tag in tags {
-                    if !tag.kind.supports(decl_kind) {
-                        let error_desc = format!("this tag is unsupported for {decl_kind} blocks");
+                    if !associated.supports(&tag.kind) {
+                        let error_desc = format!("this tag is unsupported for {associated} blocks");
                         add(error_desc, tag.range, ERROR);
                     }
                 }

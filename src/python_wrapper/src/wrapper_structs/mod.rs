@@ -66,9 +66,7 @@ impl Diagnostic {
 #[derive(Debug, Clone)]
 #[pyclass(module = "natspec_parser")]
 pub enum Severity {
-    #[pyo3(get)]
     Warning,
-    #[pyo3(get)]
     Error,
 }
 
