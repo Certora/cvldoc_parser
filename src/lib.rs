@@ -34,7 +34,7 @@ pub enum NatSpec {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssociatedElement {
     pub kind: DeclarationKind,
-    pub name: String,
+    pub name: Option<String>,
     pub params: Vec<(String, String)>,
     pub block: Option<String>,
 }
@@ -110,10 +110,17 @@ impl NatSpec {
 
     pub fn auto_generated_title(&self) -> Result<String, Report> {
         match self {
-            NatSpec::Documentation { associated, .. } => associated
-                .as_ref()
-                .map(|element| element.name.clone())
-                .ok_or_else(|| eyre!("documentation has no associated syntactic element")),
+            NatSpec::Documentation { associated, .. } => {
+                let associated = associated
+                    .as_ref()
+                    .ok_or_else(|| eyre!("documentation has no associated syntactic element"))?;
+                    
+                associated
+                    .name
+                    .as_ref()
+                    .cloned()
+                    .ok_or_else(|| eyre!("element has no name"))
+            }
             _ => bail!("free form comments have no associated syntactic element"),
         }
     }

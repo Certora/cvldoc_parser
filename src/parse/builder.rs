@@ -23,7 +23,7 @@ pub enum NatSpecBuilder {
 #[derive(Debug, Clone)]
 pub struct UnderDoc {
     pub kind: DeclarationKind,
-    pub name: String,
+    pub name: Option<String>,
     pub params: Vec<(String, String)>,
     pub block: Option<String>,
 }

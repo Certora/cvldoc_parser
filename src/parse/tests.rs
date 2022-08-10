@@ -1,5 +1,6 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{DeclarationKind, NatSpec, Tag};
+use chumsky::Parser;
 use indoc::indoc;
 use lsp_types::{Position, Range};
 use ropey::Rope;
@@ -177,7 +178,7 @@ fn parsing_params() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert_eq!(associated.name, "goodMath");
+    assert_eq!(associated.name.clone().unwrap(), "goodMath");
 
     let expected_params = [("uint", "a"), ("int", "b"), ("string", "c")];
     compare_params(&expected_params, &associated.params);
@@ -210,7 +211,7 @@ fn comments_in_associated_element() {
         .unwrap();
 
     assert_eq!(associated.kind, DeclarationKind::Rule);
-    assert_eq!(associated.name, "ofLaw");
+    assert_eq!(associated.name.clone().unwrap(), "ofLaw");
 
     let expected_params = [("string", "lapd"), ("string", "csny")];
     compare_params(&expected_params, &associated.params);
@@ -287,7 +288,13 @@ fn commented_out_doc_followed_by_non_commented() {
     assert!(parsed.iter().all(NatSpec::is_documentation));
 
     assert!(parsed[0].associated_element().is_none());
-    assert_eq!(parsed[1].associated_element().unwrap().name, "bar");
+    assert_eq!(
+        parsed[1]
+            .associated_element()
+            .and_then(|associated| associated.name.as_ref())
+            .unwrap(),
+        "bar"
+    );
 }
 
 #[test]
@@ -324,4 +331,20 @@ fn grabbing_blocks() {
         {}{}{}{{}}{{{{   }}}}
     }"}
     );
+}
+
+#[test]
+fn invariants() {
+    let src = indoc! {r#"
+        /**
+        * some stuff
+        * @title A house for dogs
+        * @param fizz this param does not exist
+        */
+        invariant streamHasSenderAndRecipient(uint256 streamId)
+    getStreamExists(streamId) => getStreamRecipient(streamId) != 0 && getStreamSender(streamId) != 0
+    "#};
+
+    let parsed = parse_src(src);
+    dbg!(parsed[0].associated_element().unwrap());
 }
