@@ -25,9 +25,10 @@ impl AssociatedElement {
             AssociatedElement::Rule { params, .. }
             | AssociatedElement::Invariant { params, .. }
             | AssociatedElement::Function { params, .. }
-            | AssociatedElement::Definition { params, .. } => {
-                params.iter().any(|(_, name)| name == param)
-            }
+            | AssociatedElement::Definition { params, .. } => params
+                .iter()
+                .filter_map(|(_, name)| name.as_ref())
+                .any(|name| name == param),
             _ => false,
         }
     }

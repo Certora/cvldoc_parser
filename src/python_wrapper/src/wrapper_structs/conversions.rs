@@ -44,66 +44,6 @@ impl From<DocumentationTag> for DocumentationTagR {
     }
 }
 
-impl From<AssociatedElementR> for AssociatedElement {
-    fn from(associated: AssociatedElementR) -> Self {
-        AssociatedElement {
-            kind: associated.to_string(),
-            name: associated.name().map(String::from).unwrap_or_default(),
-            params: associated.params().cloned().unwrap_or_default(),
-            block: associated.block().map(String::from),
-        }
-    }
-}
-
-/// this is unsound and just plain wrong. run far away and don't look back.
-impl From<AssociatedElement> for AssociatedElementR {
-    fn from(
-        AssociatedElement {
-            kind,
-            name,
-            params,
-            block,
-        }: AssociatedElement,
-    ) -> Self {
-        match kind.as_str() {
-            "rule" => AssociatedElementR::Rule {
-                name,
-                params,
-                filters: None,
-                block: String::new(),
-            },
-            "invariant" => AssociatedElementR::Invariant {
-                name,
-                params,
-                invariant: String::new(),
-                block: block.unwrap_or_default(),
-            },
-            "function" => AssociatedElementR::Function {
-                name,
-                params,
-                returns: None,
-                block: block.unwrap_or_default(),
-            },
-            "definition" => AssociatedElementR::Definition {
-                name,
-                params,
-                returns: String::new(),
-                definition: String::new(),
-            },
-            "ghost" => AssociatedElementR::Ghost {
-                name,
-                ty_list: Vec::new(),
-                returns: String::new(),
-                block,
-            },
-            "methods" => AssociatedElementR::Methods {
-                block: block.unwrap_or_default(),
-            },
-            _ => unreachable!(),
-        }
-    }
-}
-
 impl Documentation {
     pub fn from_rust_repr_components(
         tags: Vec<DocumentationTagR>,
@@ -113,7 +53,7 @@ impl Documentation {
         let tags_wrapper = tags.into_iter().map(Into::into).collect();
         Documentation {
             tags: tags_wrapper,
-            associated: associated.map(Into::into),
+            associated: associated.map(AssociatedElement),
             range: range.into(),
         }
     }
@@ -129,7 +69,7 @@ impl From<Documentation> for NatSpecR {
     ) -> Self {
         NatSpecR::Documentation {
             tags: tags.into_iter().map(Into::into).collect(),
-            associated: associated.map(Into::into),
+            associated: associated.map(|wrapper| wrapper.0),
             range: range.into(),
         }
     }

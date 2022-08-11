@@ -31,39 +31,38 @@ pub enum NatSpec {
     },
 }
 
-type Ty = String;
-type ParamList = Vec<(Ty, String)>;
-type TyList = Vec<Ty>;
+pub type Ty = String;
+pub type Param = (Ty, Option<String>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssociatedElement {
     Rule {
         name: String,
-        params: ParamList,
+        params: Vec<Param>,
         filters: Option<String>,
         block: String,
     },
     Invariant {
         name: String,
-        params: ParamList,
+        params: Vec<Param>,
         invariant: String,
         block: String,
     },
     Function {
         name: String,
-        params: ParamList,
+        params: Vec<Param>,
         returns: Option<String>,
         block: String,
     },
     Definition {
         name: String,
-        params: ParamList,
+        params: Vec<Param>,
         returns: String,
         definition: String,
     },
     Ghost {
         name: String,
-        ty_list: TyList,
+        ty_list: Vec<Ty>,
         returns: String,
         block: Option<String>,
     },
@@ -247,7 +246,7 @@ impl AssociatedElement {
         }
     }
 
-    pub fn params(&self) -> Option<&ParamList> {
+    pub fn params(&self) -> Option<&[Param]> {
         match self {
             AssociatedElement::Rule { params, .. }
             | AssociatedElement::Invariant { params, .. }
@@ -268,6 +267,22 @@ impl AssociatedElement {
             | AssociatedElement::GhostMapping { block, .. } => block.as_ref().map(String::as_str),
 
             AssociatedElement::Definition { .. } => None, //TODO: return definition?
+        }
+    }
+
+    pub fn returns(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Function { returns, .. } => returns.as_ref().map(String::as_str),
+            AssociatedElement::Definition { returns, .. }
+            | AssociatedElement::Ghost { returns, .. } => Some(returns.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn ty_list(&self) -> Option<&[Ty]> {
+        match self {
+            AssociatedElement::Ghost { ty_list, .. } => Some(ty_list),
+            _ => None,
         }
     }
 }

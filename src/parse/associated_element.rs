@@ -1,5 +1,5 @@
 use super::*;
-use crate::{AssociatedElement, ParamList};
+use crate::{AssociatedElement, Param, Ty};
 
 /// according to the grammar, it is required to have some amount of whitespace immediately after
 /// some tokens. however, this may again be followed by comments.
@@ -55,12 +55,10 @@ fn ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
     text::ident().boxed()
 }
 
-type TyList = Vec<String>;
-
-fn param_list<'src>() -> BoxedParser<'src, char, ParamList, Simple<char>> {
+fn param_list<'src>() -> BoxedParser<'src, char, Vec<Param>, Simple<char>> {
     let args = ty()
         .then_ignore(mandatory_token_separator())
-        .then(text::ident())
+        .then(text::ident().or_not())
         .padded_by(optional_token_separator())
         .boxed();
 
@@ -69,7 +67,7 @@ fn param_list<'src>() -> BoxedParser<'src, char, ParamList, Simple<char>> {
         .boxed()
 }
 
-fn ty_list<'src>() -> BoxedParser<'src, char, TyList, Simple<char>> {
+fn unnamed_param_list<'src>() -> BoxedParser<'src, char, Vec<Ty>, Simple<char>> {
     let single_ty = ty().then_ignore(optional_token_separator());
 
     single_ty
@@ -177,7 +175,7 @@ fn ghost_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>
 
     let without_mapping = decl_name()
         .then_ignore(optional_token_separator())
-        .then(ty_list())
+        .then(unnamed_param_list())
         .then_ignore(optional_token_separator())
         .then(returns_type())
         .then_ignore(optional_token_separator())
@@ -212,8 +210,7 @@ fn function_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<ch
 
     function_start
         .ignore_then(decl_name())
-        .then_ignore(optional_token_separator())
-        .then(param_list())
+        .then(param_list().padded_by(optional_token_separator()))
         .then_ignore(optional_token_separator())
         .then(
             returns_type()

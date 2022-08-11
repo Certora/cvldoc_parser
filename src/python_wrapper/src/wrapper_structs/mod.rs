@@ -1,5 +1,6 @@
 pub mod conversions;
 
+use natspec_parser::{Param, Ty};
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -113,22 +114,57 @@ impl FreeForm {
 
 #[derive(Debug, Clone)]
 #[pyclass(module = "natspec_parser")]
-pub struct AssociatedElement {
+pub struct AssociatedElement2 {
     #[pyo3(get)]
     pub kind: String,
     #[pyo3(get)]
     pub name: String,
     #[pyo3(get)]
-    pub params: Vec<(String, String)>,
+    pub params: Vec<Param>,
     #[pyo3(get)]
     pub block: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+#[pyclass(module = "natspec_parser")]
+pub struct AssociatedElement(natspec_parser::AssociatedElement);
+
 #[pymethods]
 impl AssociatedElement {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
+    #[getter]
+    pub fn kind(&self) -> String {
+        self.0.to_string()
     }
+
+    #[getter]
+    pub fn name(&self) -> Option<&str> {
+        self.0.name()
+    }
+
+    #[getter]
+    pub fn params(&self) -> Vec<Param> {
+        self.0.params().map(Vec::from).unwrap_or_default()
+    }
+
+    #[getter]
+    pub fn block(&self) -> Option<&str> {
+        self.0.block()
+    }
+
+    #[getter]
+    pub fn returns(&self) -> Option<&str> {
+        self.0.returns()
+    }
+
+    #[getter]
+    pub fn ty_list(&self) -> Vec<Ty> {
+        self.0.ty_list().map(Vec::from).unwrap_or_default()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.0)
+    }
+
 }
 
 #[derive(Debug, Clone)]
