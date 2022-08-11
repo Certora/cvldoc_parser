@@ -50,13 +50,33 @@ fn param_filters<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
         .boxed()
 }
 
+/// this is overly lenient. it is an approximation and is not meant to verify type correctness.
+/// it's just here to be able to recognize types that the compiler would accept.
+/// among other issues, this does not bother trimming all possible comments and whitespace.
 fn ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
-    //stub
-    text::ident().boxed()
+    let id = text::ident();
+    let call = id
+        .chain(just('.'))
+        .chain(id)
+        .map(|v: Vec<char>| v.into_iter().collect());
+    let mapping = mapping_ty();
+    let array_ty = id
+        .or(call)
+        .then_ignore(optional_token_separator())
+        .then_ignore(just('['))
+        .then(take_until_without_terminator(just(']')))
+        .map(|(id, subscript)| {
+            format!(
+                "{id}[{subscript}]",
+                subscript = String::from_iter(subscript)
+            )
+        });
+
+    choice((array_ty, mapping, call, id)).boxed()
 }
 
 fn param_list<'src>() -> BoxedParser<'src, char, Vec<Param>, Simple<char>> {
-    let param_name = mandatory_token_separator().ignore_then(text::ident()); 
+    let param_name = mandatory_token_separator().ignore_then(text::ident());
     let args = ty()
         .then(param_name.or_not())
         .padded_by(optional_token_separator())
