@@ -56,9 +56,9 @@ fn ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
 }
 
 fn param_list<'src>() -> BoxedParser<'src, char, Vec<Param>, Simple<char>> {
+    let param_name = mandatory_token_separator().ignore_then(text::ident()); 
     let args = ty()
-        .then_ignore(mandatory_token_separator())
-        .then(text::ident().or_not())
+        .then(param_name.or_not())
         .padded_by(optional_token_separator())
         .boxed();
 
@@ -133,27 +133,14 @@ fn rule_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>>
         .boxed()
 }
 
-/// temporary workaround until actual mapping type is recognized
-// fn mapping_ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
-//     let inner = ident()
-//         .then_ignore(just("=>"))
-//         .then(decl_name())
-//         .map(|(l, r)| format!("{l} => {r}"))
-//         .padded_by(mandatory_token_separator());
-//     just("mapping")
-//         .ignore_then(inner.delimited_by(just('('), just(')')))
-//         .padded_by(optional_token_separator())
-//         .boxed()
-// }
-
 fn mapping_ty<'src>() -> BoxedParser<'src, char, String, Simple<char>> {
     just("mapping")
-        .rewind()
-        .ignore_then(take_until(just(')')))
-        .map(|(text, terminator)| {
-            text.into_iter()
-                .chain(std::iter::once(terminator))
-                .collect()
+        .ignore_then(optional_token_separator())
+        .ignore_then(just('('))
+        .ignore_then(take_until_without_terminator(just(')')))
+        .map(|body| {
+            let body = String::from_iter(body);
+            format!("mapping({body})")
         })
         .boxed()
 }
