@@ -62,7 +62,7 @@ pub(super) fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<c
 //matches the opening curly bracket (that is, the string up to that point is "balanced")
 //note this does not validate that the brackets are
 //still balanced past the last balanced closing bracket.
-pub(super) fn balanced_brackets<'src>() -> Recursive<'src, char, String, Simple<char>> {
+pub(super) fn balanced_curly_brackets<'src>() -> Recursive<'src, char, String, Simple<char>> {
     let lb = just('{').map(String::from);
     let rb = just('}').map(String::from);
     let content = none_of("{}").repeated().at_least(1).map(String::from_iter);

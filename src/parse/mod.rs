@@ -1,7 +1,8 @@
+mod associated_element;
 pub mod builder;
 mod helpers;
 
-use self::builder::UnderDoc;
+use self::associated_element::associated_element;
 use crate::util::span_to_range::Spanned;
 use builder::NatSpecBuilder;
 use chumsky::prelude::*;
@@ -73,90 +74,9 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
     choice((free_form_single_line, free_form_multi_line)).boxed()
 }
 
-/// when parsing the block associated with the documentation, we are dealing with
-/// a stream of tokens. tokens may be separated by some combination of whitespace or comments.
-/// since we do not go through a lexing stage that filters them out, we must assume
-/// that they may exist (possibly repeatedly) between any valid token of the associated block.
-fn optional_token_separator_immediately_after_doc<'src>(
-) -> BoxedParser<'src, char, (), Simple<char>> {
-    let single_line_comment_between_tokens = just("//")
-        .then(none_of('/').rewind())
-        .then(take_to_newline_or_end())
-        .ignored();
-
-    //we cannot use the usual multi-line comment parser here, since it is
-    //now allowed to have "/**" as a comment starter.
-    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
-
-    let comment = choice((
-        single_line_comment_between_tokens,
-        multi_line_comment_between_tokens,
-    ))
-    .padded();
-
-    comment.repeated().ignored().padded().boxed()
-}
-
-fn optional_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
-    //we cannot use the usual multi-line comment parser here, since it is
-    //now allowed to have "/**" as a comment starter.
-    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
-
-    let comment = choice((single_line_cvl_comment(), multi_line_comment_between_tokens)).padded();
-
-    comment.repeated().ignored().padded().boxed()
-}
-
-/// according to the grammar, it is required to have some amount of whitespace immediately after
-/// some tokens. however, this may again be followed by comments.
-fn mandatory_token_separator<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
-    let mandatory_ws = text::whitespace().at_least(1);
-
-    mandatory_ws.ignore_then(optional_token_separator()).boxed()
-}
-
-fn under_doc<'src>() -> BoxedParser<'src, char, UnderDoc, Simple<char>> {
-    let decl_under_natspec = {
-        let decl_kind = text::ident().try_map(|kw: String, span| {
-            let kind = kw.as_str().try_into();
-            kind.map_err(|e| Simple::custom(span, e))
-        });
-        let decl_name = text::ident();
-
-        let decl = decl_kind
-            .then_ignore(mandatory_token_separator())
-            .then(decl_name);
-
-        optional_token_separator_immediately_after_doc()
-            .ignore_then(decl)
-            .then_ignore(optional_token_separator())
-            .boxed()
-    };
-
-    let params_under_natspec = {
-        let args = text::ident()
-            .then_ignore(mandatory_token_separator())
-            .then(text::ident())
-            .padded_by(optional_token_separator())
-            .boxed();
-
-        args.separated_by(just(','))
-            .delimited_by(just('('), just(')'))
-            .boxed()
-    };
-
-    let optional_block = balanced_brackets().map(Option::Some).or(just(';').to(None));
-
-    decl_under_natspec
-        .then(params_under_natspec.or_not().map(Option::unwrap_or_default))
-        .then_ignore(optional_token_separator())
-        .then(optional_block)
-        .map(|(((kind, name), params), block)| UnderDoc {
-            kind,
-            name,
-            params,
-            block,
-        })
+fn commented_out_block<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+    multi_line_cvl_comment()
+        .to(NatSpecBuilder::CommentedOutBlock)
         .boxed()
 }
 
@@ -181,7 +101,7 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
     let doc = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
-    doc.then(under_doc().or_not())
+    doc.then(associated_element().or_not())
         .map(
             |((spanned_body, span), element_under_doc)| NatSpecBuilder::Documentation {
                 span,
@@ -189,12 +109,6 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
                 element_under_doc,
             },
         )
-        .boxed()
-}
-
-fn commented_out_block<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
-    multi_line_cvl_comment()
-        .to(NatSpecBuilder::CommentedOutBlock)
         .boxed()
 }
 

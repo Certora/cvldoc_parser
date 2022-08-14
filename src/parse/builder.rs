@@ -1,5 +1,5 @@
 use crate::util::span_to_range::{RangeConverter, Span, Spanned};
-use crate::{AssociatedElement, DeclarationKind, DocumentationTag, NatSpec, Tag};
+use crate::{AssociatedElement, DocumentationTag, NatSpec, Tag};
 use color_eyre::eyre::bail;
 use color_eyre::Report;
 use itertools::Itertools;
@@ -13,37 +13,11 @@ pub enum NatSpecBuilder {
     },
     Documentation {
         spanned_body: Vec<Spanned<String>>,
-        element_under_doc: Option<UnderDoc>,
+        element_under_doc: Option<AssociatedElement>,
         span: Span,
     },
     CommentedOutBlock,
     ParseError,
-}
-
-#[derive(Debug, Clone)]
-pub struct UnderDoc {
-    pub kind: DeclarationKind,
-    pub name: String,
-    pub params: Vec<(String, String)>,
-    pub block: Option<String>,
-}
-
-impl From<UnderDoc> for AssociatedElement {
-    fn from(
-        UnderDoc {
-            kind,
-            name,
-            params,
-            block,
-        }: UnderDoc,
-    ) -> Self {
-        AssociatedElement {
-            kind,
-            name,
-            params,
-            block,
-        }
-    }
 }
 
 impl NatSpecBuilder {

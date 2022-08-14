@@ -1,5 +1,5 @@
 use crate::util::span_to_range::RangeConverter;
-use crate::{DeclarationKind, NatSpec, Tag};
+use crate::{AssociatedElement, NatSpec, Param, Tag};
 use indoc::indoc;
 use lsp_types::{Position, Range};
 use ropey::Rope;
@@ -10,12 +10,17 @@ fn parse_src(src: &str) -> Vec<NatSpec> {
     NatSpec::from_rope(rope)
 }
 
-fn compare_params(expected_params: &[(&str, &str)], actual_params: &[(String, String)]) {
-    assert_eq!(
-        expected_params.len(),
-        actual_params.len(),
-        "not all params were parsed"
-    );
+macro_rules! param {
+    ($ty: expr) => {
+        ($ty.to_string(), None)
+    };
+    ($ty:expr, $name:expr) => {
+        ($ty.to_string(), Some($name.to_string()))
+    };
+}
+
+fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
+    assert_eq!(expected_params.len(), actual_params.len());
 
     for (expected, actual) in zip(expected_params, actual_params) {
         assert_eq!(expected.0, actual.0, "parsed param type is different");
@@ -177,10 +182,14 @@ fn parsing_params() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert_eq!(associated.name, "goodMath");
+    assert_eq!(associated.name().unwrap(), "goodMath");
 
-    let expected_params = [("uint", "a"), ("int", "b"), ("string", "c")];
-    compare_params(&expected_params, &associated.params);
+    let expected_params = [
+        param!("uint", "a"),
+        param!("int", "b"),
+        param!("string", "c"),
+    ];
+    compare_params(&expected_params, associated.params().unwrap());
 }
 
 #[test]
@@ -209,11 +218,11 @@ fn comments_in_associated_element() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert_eq!(associated.kind, DeclarationKind::Rule);
-    assert_eq!(associated.name, "ofLaw");
+    assert!(matches!(associated, AssociatedElement::Rule { .. }));
+    assert_eq!(associated.name().unwrap(), "ofLaw");
 
-    let expected_params = [("string", "lapd"), ("string", "csny")];
-    compare_params(&expected_params, &associated.params);
+    let expected_params = [param!("string", "lapd"), param!("string", "csny")];
+    compare_params(&expected_params, associated.params().unwrap());
 }
 
 #[test]
@@ -287,7 +296,13 @@ fn commented_out_doc_followed_by_non_commented() {
     assert!(parsed.iter().all(NatSpec::is_documentation));
 
     assert!(parsed[0].associated_element().is_none());
-    assert_eq!(parsed[1].associated_element().unwrap().name, "bar");
+    assert_eq!(
+        parsed[1]
+            .associated_element()
+            .and_then(AssociatedElement::name)
+            .unwrap(),
+        "bar"
+    );
 }
 
 #[test]
@@ -296,7 +311,7 @@ fn grabbing_blocks() {
             /**
              * this checks that nested blocks are grabbed
              */
-            ghost of(Christmas past) {
+            function of(Christmas past) {
                 if (true) {
                     do_this();
                 } else {
@@ -310,7 +325,7 @@ fn grabbing_blocks() {
 
     let block = parsed[0]
         .associated_element()
-        .and_then(|elem| elem.block.as_ref())
+        .and_then(AssociatedElement::block)
         .expect("could not capture code block");
 
     assert_eq!(

@@ -31,54 +31,49 @@ pub enum NatSpec {
     },
 }
 
+pub type Ty = String;
+pub type Param = (Ty, Option<String>);
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AssociatedElement {
-    pub kind: DeclarationKind,
-    pub name: String,
-    pub params: Vec<(String, String)>,
-    pub block: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DeclarationKind {
-    Rule,
-    Invariant,
-    Function,
-    Definition,
-    Ghost,
-    Methods,
-}
-
-impl Display for DeclarationKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let kind = match self {
-            DeclarationKind::Rule => "rule",
-            DeclarationKind::Invariant => "invariant",
-            DeclarationKind::Function => "function",
-            DeclarationKind::Definition => "definition",
-            DeclarationKind::Ghost => "ghost",
-            DeclarationKind::Methods => "methods",
-        };
-        write!(f, "{kind}")
-    }
-}
-
-impl TryFrom<&str> for DeclarationKind {
-    type Error = color_eyre::Report;
-
-    fn try_from(kw: &str) -> Result<Self, Self::Error> {
-        use DeclarationKind::*;
-
-        match kw {
-            "rule" => Ok(Rule),
-            "invariant" => Ok(Invariant),
-            "function" => Ok(Function),
-            "definition" => Ok(Definition),
-            "ghost" => Ok(Ghost),
-            "methods" => Ok(Methods),
-            _ => bail!("unrecognized declaration keyword: {kw}"),
-        }
-    }
+pub enum AssociatedElement {
+    Rule {
+        name: String,
+        params: Vec<Param>,
+        filters: Option<String>,
+        block: String,
+    },
+    Invariant {
+        name: String,
+        params: Vec<Param>,
+        invariant: String,
+        block: String,
+    },
+    Function {
+        name: String,
+        params: Vec<Param>,
+        returns: Option<String>,
+        block: String,
+    },
+    Definition {
+        name: String,
+        params: Vec<Param>,
+        returns: String,
+        definition: String,
+    },
+    Ghost {
+        name: String,
+        ty_list: Vec<Ty>,
+        returns: String,
+        block: Option<String>,
+    },
+    GhostMapping {
+        name: String,
+        mapping: String,
+        block: Option<String>,
+    },
+    Methods {
+        block: String,
+    },
 }
 
 impl NatSpec {
@@ -110,10 +105,16 @@ impl NatSpec {
 
     pub fn auto_generated_title(&self) -> Result<String, Report> {
         match self {
-            NatSpec::Documentation { associated, .. } => associated
-                .as_ref()
-                .map(|element| element.name.clone())
-                .ok_or_else(|| eyre!("documentation has no associated syntactic element")),
+            NatSpec::Documentation { associated, .. } => {
+                let associated = associated
+                    .as_ref()
+                    .ok_or_else(|| eyre!("documentation has no associated syntactic element"))?;
+
+                associated
+                    .name()
+                    .map(|name| name.to_string())
+                    .ok_or_else(|| eyre!("element has no name"))
+            }
             _ => bail!("free form comments have no associated syntactic element"),
         }
     }
@@ -213,6 +214,75 @@ impl From<&str> for Tag {
             "return" => Tag::Return,
             "formula" => Tag::Formula,
             _ => Tag::Unexpected(s.to_string()),
+        }
+    }
+}
+
+impl Display for AssociatedElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kind = match self {
+            AssociatedElement::Rule { .. } => "rule",
+            AssociatedElement::Invariant { .. } => "invariant",
+            AssociatedElement::Function { .. } => "function",
+            AssociatedElement::Definition { .. } => "definition",
+            AssociatedElement::Ghost { .. } | AssociatedElement::GhostMapping { .. } => "ghost",
+            AssociatedElement::Methods { .. } => "methods",
+        };
+
+        write!(f, "{kind}")
+    }
+}
+
+impl AssociatedElement {
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Rule { name, .. }
+            | AssociatedElement::Invariant { name, .. }
+            | AssociatedElement::Function { name, .. }
+            | AssociatedElement::Definition { name, .. }
+            | AssociatedElement::Ghost { name, .. }
+            | AssociatedElement::GhostMapping { name, .. } => Some(name.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn params(&self) -> Option<&[Param]> {
+        match self {
+            AssociatedElement::Rule { params, .. }
+            | AssociatedElement::Invariant { params, .. }
+            | AssociatedElement::Function { params, .. }
+            | AssociatedElement::Definition { params, .. } => Some(params),
+            _ => None,
+        }
+    }
+
+    pub fn block(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Rule { block, .. }
+            | AssociatedElement::Invariant { block, .. }
+            | AssociatedElement::Function { block, .. }
+            | AssociatedElement::Methods { block } => Some(block.as_str()),
+
+            AssociatedElement::Ghost { block, .. }
+            | AssociatedElement::GhostMapping { block, .. } => block.as_ref().map(String::as_str),
+
+            AssociatedElement::Definition { .. } => None, //TODO: return definition?
+        }
+    }
+
+    pub fn returns(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Function { returns, .. } => returns.as_ref().map(String::as_str),
+            AssociatedElement::Definition { returns, .. }
+            | AssociatedElement::Ghost { returns, .. } => Some(returns.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn ty_list(&self) -> Option<&[Ty]> {
+        match self {
+            AssociatedElement::Ghost { ty_list, .. } => Some(ty_list),
+            _ => None,
         }
     }
 }

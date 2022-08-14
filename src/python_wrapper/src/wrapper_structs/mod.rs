@@ -1,9 +1,10 @@
 pub mod conversions;
 
+use natspec_parser::{Param, Ty};
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct Documentation {
     #[pyo3(get)]
     pub tags: Vec<DocumentationTag>,
@@ -14,7 +15,7 @@ pub struct Documentation {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct Range {
     #[pyo3(get)]
     pub start: Position,
@@ -30,7 +31,7 @@ impl Range {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct Position {
     #[pyo3(get)]
     pub line: u32,
@@ -46,7 +47,7 @@ impl Position {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct Diagnostic {
     #[pyo3(get)]
     pub range: Range,
@@ -64,14 +65,14 @@ impl Diagnostic {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub enum Severity {
     Warning,
     Error,
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct FreeForm {
     #[pyo3(get)]
     pub header: String,
@@ -111,28 +112,51 @@ impl FreeForm {
     }
 }
 
+
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
-pub struct AssociatedElement {
-    #[pyo3(get)]
-    pub kind: String,
-    #[pyo3(get)]
-    pub name: String,
-    #[pyo3(get)]
-    pub params: Vec<(String, String)>,
-    #[pyo3(get)]
-    pub block: Option<String>,
-}
+#[pyclass(module = "natspec_parser")]
+pub struct AssociatedElement(natspec_parser::AssociatedElement);
 
 #[pymethods]
 impl AssociatedElement {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
+    #[getter]
+    pub fn kind(&self) -> String {
+        self.0.to_string()
     }
+
+    #[getter]
+    pub fn name(&self) -> Option<&str> {
+        self.0.name()
+    }
+
+    #[getter]
+    pub fn params(&self) -> Vec<Param> {
+        self.0.params().map(Vec::from).unwrap_or_default()
+    }
+
+    #[getter]
+    pub fn block(&self) -> Option<&str> {
+        self.0.block()
+    }
+
+    #[getter]
+    pub fn returns(&self) -> Option<&str> {
+        self.0.returns()
+    }
+
+    #[getter]
+    pub fn ty_list(&self) -> Vec<Ty> {
+        self.0.ty_list().map(Vec::from).unwrap_or_default()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.0)
+    }
+
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module="natspec_parser")]
+#[pyclass(module = "natspec_parser")]
 pub struct DocumentationTag {
     #[pyo3(get)]
     pub kind: String,

@@ -44,42 +44,6 @@ impl From<DocumentationTag> for DocumentationTagR {
     }
 }
 
-impl From<AssociatedElementR> for AssociatedElement {
-    fn from(
-        AssociatedElementR {
-            kind,
-            name,
-            params,
-            block,
-        }: AssociatedElementR,
-    ) -> Self {
-        AssociatedElement {
-            kind: kind.to_string(),
-            name,
-            params,
-            block,
-        }
-    }
-}
-
-impl From<AssociatedElement> for AssociatedElementR {
-    fn from(
-        AssociatedElement {
-            kind,
-            name,
-            params,
-            block,
-        }: AssociatedElement,
-    ) -> Self {
-        AssociatedElementR {
-            kind: kind.as_str().try_into().unwrap(),
-            name,
-            params,
-            block,
-        }
-    }
-}
-
 impl Documentation {
     pub fn from_rust_repr_components(
         tags: Vec<DocumentationTagR>,
@@ -89,7 +53,7 @@ impl Documentation {
         let tags_wrapper = tags.into_iter().map(Into::into).collect();
         Documentation {
             tags: tags_wrapper,
-            associated: associated.map(Into::into),
+            associated: associated.map(AssociatedElement),
             range: range.into(),
         }
     }
@@ -105,7 +69,7 @@ impl From<Documentation> for NatSpecR {
     ) -> Self {
         NatSpecR::Documentation {
             tags: tags.into_iter().map(Into::into).collect(),
-            associated: associated.map(Into::into),
+            associated: associated.map(|wrapper| wrapper.0),
             range: range.into(),
         }
     }
