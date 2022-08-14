@@ -112,18 +112,6 @@ impl FreeForm {
     }
 }
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
-pub struct AssociatedElement2 {
-    #[pyo3(get)]
-    pub kind: String,
-    #[pyo3(get)]
-    pub name: String,
-    #[pyo3(get)]
-    pub params: Vec<Param>,
-    #[pyo3(get)]
-    pub block: Option<String>,
-}
 
 #[derive(Debug, Clone)]
 #[pyclass(module = "natspec_parser")]
