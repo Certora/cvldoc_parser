@@ -56,22 +56,3 @@ pub(super) fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<c
         .then(take_to_starred_terminator())
         .ignored()
 }
-
-//grabs all text between a pair of curly brackets, including the brackets.
-//it keeps going through nested brackets, until it find a closing bracket that
-//matches the opening curly bracket (that is, the string up to that point is "balanced")
-//note this does not validate that the brackets are
-//still balanced past the last balanced closing bracket.
-pub(super) fn balanced_curly_brackets<'src>() -> Recursive<'src, char, String, Simple<char>> {
-    let lb = just('{').map(String::from);
-    let rb = just('}').map(String::from);
-    let content = none_of("{}").repeated().at_least(1).map(String::from_iter);
-
-    recursive(|block| {
-        let between = content.or(block).repeated().map(String::from_iter);
-
-        lb.chain(between)
-            .chain(rb)
-            .map(|v: Vec<String>| v.into_iter().collect())
-    })
-}
