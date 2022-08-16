@@ -149,6 +149,26 @@ impl AssociatedElement {
         self.0.ty_list().map(Vec::from).unwrap_or_default()
     }
 
+    #[getter]
+    pub fn filters(&self) -> Option<&str> {
+        self.0.filters()
+    }
+
+    #[getter]
+    pub fn invariant(&self) -> Option<&str> {
+        self.0.invariant()
+    }
+
+    #[getter]
+    pub fn mapping(&self) -> Option<&str> {
+        self.0.mapping()
+    }
+
+    #[getter]
+    pub fn definition(&self) -> Option<&str> {
+        self.0.definition()
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.0)
     }

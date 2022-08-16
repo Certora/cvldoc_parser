@@ -328,15 +328,36 @@ fn grabbing_blocks() {
         .and_then(AssociatedElement::block)
         .expect("could not capture code block");
 
-    assert_eq!(
-        block,
-        indoc! { "{
-        if (true) {
-            do_this();
-        } else {
-            do_that();
-        }
-        {}{}{}{{}}{{{{   }}}}
-    }"}
-    );
+    assert!(block.ends_with("{}{}{}{{}}{{{{   }}}}"));
+}
+
+#[test]
+fn invariants() {
+    let src = indoc! {r#"
+    /**
+     @title Valid Operator
+     @notice Zero cannot be an operator.
+    */
+    invariant validOperator(address operator)
+            beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 )
+    
+    
+    /**
+         @title Valid state of an operator ❌.
+        @notice Operators with assets must have an owner, a beneficiary, and an authorizer.
+    
+            (unbondedValue(o) + lockedBonds(o)) > 0 ⟹
+                ( ownerOf(o) ≠ 0 ⋀ beneficiaryOf(o) ≠ 0 ⋀ authorizerOf(o) ≠ 0 )
+    */
+    definition MAX_UINT160() returns uint256 = 1461501637330902918203684832716283019655932542975
+    ;
+        "#};
+
+    let parsed = parse_src(src);
+
+    for (i, associated) in parsed.iter().map(NatSpec::associated_element).enumerate() {
+        let associated = associated.unwrap();
+        println!("natspec {i}:");
+        println!("{associated:?}");
+    }
 }

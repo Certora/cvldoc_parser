@@ -286,4 +286,33 @@ impl AssociatedElement {
             _ => None,
         }
     }
+
+    pub fn filters(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Rule { filters, .. }
+            | AssociatedElement::Invariant { filters, .. } => filters.as_ref().map(String::as_str),
+            _ => None,
+        }
+    }
+
+    pub fn invariant(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Invariant { invariant, .. } => Some(invariant.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn mapping(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::GhostMapping { mapping, .. } => Some(mapping.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn definition(&self) -> Option<&str> {
+        match self {
+            AssociatedElement::Definition { definition, .. } => Some(definition.as_str()),
+            _ => None,
+        }
+    }
 }
