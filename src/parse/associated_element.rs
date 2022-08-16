@@ -114,7 +114,8 @@ fn invariant_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<c
             name,
             params,
             invariant: String::new(),
-            block: String::new(),
+            filters: None,
+            block: None,
         })
         .boxed()
 }
