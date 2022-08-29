@@ -258,7 +258,7 @@ fn ghost_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>
     let optional_block = balanced_curly_brackets().map(Some).or(just(';').to(None));
     let ghost_start = just("ghost").then(mandatory_sep());
 
-    let with_mapping = mapping_ty()
+    let with_mapping = ty()
         .then_ignore(mandatory_sep())
         .then(decl_name())
         .then_ignore(optional_sep())
