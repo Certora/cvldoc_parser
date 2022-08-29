@@ -80,6 +80,14 @@ fn commented_out_block<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple
         .boxed()
 }
 
+fn commented_out_line<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+    just("//")
+        .then(none_of('/'))
+        .then(take_to_newline_or_end())
+        .to(NatSpecBuilder::CommentedOutLine)
+        .boxed()
+}
+
 fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
     let spanned_slashed_line = just("///")
         .ignore_then(none_of('/').rewind())
@@ -114,7 +122,7 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
 
 pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error = Simple<char>> {
     let valid_natspec = choice([free_form_comment(), natspec_doc()]);
-    let natspec = commented_out_block().or(valid_natspec);
+    let natspec = choice((commented_out_block(), commented_out_line(), valid_natspec));
 
     natspec
         .recover_with(skip_until(['\n', ' '], |_| NatSpecBuilder::ParseError).consume_end())

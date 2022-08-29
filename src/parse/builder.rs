@@ -17,6 +17,7 @@ pub enum NatSpecBuilder {
         span: Span,
     },
     CommentedOutBlock,
+    CommentedOutLine,
     ParseError,
 }
 
@@ -60,7 +61,7 @@ impl NatSpecBuilder {
                     range,
                 })
             }
-            NatSpecBuilder::CommentedOutBlock => {
+            NatSpecBuilder::CommentedOutBlock | NatSpecBuilder::CommentedOutLine => {
                 bail!("currently commented out code is not parsed")
             }
             NatSpecBuilder::ParseError => bail!("parse errors can not be converted"),
