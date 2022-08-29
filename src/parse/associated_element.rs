@@ -214,10 +214,9 @@ fn invariant_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<c
 }
 
 fn methods_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
-    let methods_start = just("methods").then(mandatory_sep());
+    let methods_start = just("methods").then(optional_sep());
 
     methods_start
-        .ignore_then(optional_sep())
         .ignore_then(balanced_curly_brackets())
         .map(|block| AssociatedElement::Methods { block })
         .boxed()
