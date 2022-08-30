@@ -85,7 +85,7 @@ impl NatSpec {
                     }
                 }
             } else {
-                let error_desc = "no associated element for documentation".into();
+                let error_desc = "no associated element for NatSpec documentation block".into();
                 add(error_desc, None, ERROR);
             }
 
