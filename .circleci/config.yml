@@ -8,7 +8,7 @@ jobs:
       - run: cargo --version
       - run:
           command: |
-            sudo apt install python3-pip
+            sudo apt install python3-venv python3-pip 
             cd src/python_wrapper
             python3 -m venv .env
             source .env/bin/activate
