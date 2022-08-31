@@ -6,4 +6,4 @@
 ### Fixed
 - Don't require whitespace after keyword `methods` in a `methods` block declaration
 - Allow any type in a `GhostMapping`, not just `mapping` types
-- Do not attempt to parse NatSpecs on lines that begin with just "//"
+- Do not attempt to parse NatSpecs on lines that begin with just `//`
