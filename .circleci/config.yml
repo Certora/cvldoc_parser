@@ -7,12 +7,18 @@ jobs:
       - checkout
       - run: cargo --version
       - run:
+          name: Install Deps 
           command: |
             sudo apt install python3-venv python3-pip 
+            pip install maturin
+
+      - run:
+          name: build 
+          command: 
             cd src/python_wrapper
             python3 -m venv .env
             source .env/bin/activate
-            pip install maturin
+            maturin build
 
 workflows:
   python-package:
