@@ -1,6 +1,4 @@
 version: 2.1
-orbs: 
-  python: circleci/python@2.0.3
 jobs:
   build:
     docker:
@@ -8,12 +6,11 @@ jobs:
     steps:
       - checkout
       - run: cargo --version
-      - python/install-packages:
-          pkg-manager: pip
       - run:
           command: |
+            apt-get install python3
             cd src/python_wrapper
-            python -m venv .env
+            python3 -m venv .env
             source .env/bin/activate
             pip install maturin
 
