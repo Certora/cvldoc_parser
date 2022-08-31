@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build:
+  build-the-package:
     docker:
       - image: cimg/rust:1.63.0
     steps:
@@ -11,7 +11,6 @@ jobs:
           command: |
             sudo apt install python3-venv python3-pip 
             pip install maturin
-
       - run:
           name: Build 
           command: |
@@ -19,8 +18,10 @@ jobs:
             python3 -m venv .env
             source .env/bin/activate
             maturin build
+      - store_artifacts:
+          path: /home/circleci/project/src/python_wrapper/target/wheels/natspec_parser-0.2.0-cp38-cp38-manylinux_2_28_x86_64.whl
 
 workflows:
   python-package:
     jobs:
-      - build
+      - build-the-package
