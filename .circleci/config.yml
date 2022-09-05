@@ -30,11 +30,11 @@ jobs:
           name: Build 
           command: |
             cd src/python_wrapper
-            python3 -m venv .env
+            # python3 -m venv .env
             source .env/bin/activate
             maturin build
       - store_artifacts:
-          path: /root/project/src/python_wrapper/target/wheels/natspec_parser-0.2.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+          path: /root/project/src/python_wrapper/target/wheels/*.whl
 
 workflows:
   python-package:
