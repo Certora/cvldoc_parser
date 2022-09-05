@@ -20,7 +20,7 @@ jobs:
               echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
               rustup --version
               cargo --version
-              rustc --versio
+              rustc --version
       - run:
           name: Install Deps 
           command: |
