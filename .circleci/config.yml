@@ -31,10 +31,10 @@ jobs:
           command: |
             cd src/python_wrapper
             # python3 -m venv .env
-            source .env/bin/activate
+            # source .env/bin/activate
             maturin build
       - store_artifacts:
-          path: /root/project/src/python_wrapper/target/wheels/*.whl
+          path: /root/project/src/python_wrapper/target/wheels/
 
 workflows:
   python-package:
