@@ -2,10 +2,25 @@ version: 2.1
 jobs:
   build-the-package:
     docker:
-      - image: cimg/rust:1.63.0
+      - image: messense/manylinux2014-cross:x86_64
     steps:
       - checkout
-      - run: cargo --version
+      - run:
+          name: "APT Install Dependencies"
+          command: |
+              sudo apt-get update
+              sudo apt-get install curl
+      - run:
+          name: "Install Rust"
+          command: |
+              curl "https://sh.rustup.rs" -o "rust-init.sh"
+              chmod +x "rust-init.sh"
+              ./rust-init.sh -y --default-toolchain stable --no-modify-path --profile minimal
+              export PATH="$HOME/.cargo/bin:$PATH"
+              echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+              rustup --version
+              cargo --version
+              rustc --versio
       - run:
           name: Install Deps 
           command: |
@@ -18,8 +33,6 @@ jobs:
             python3 -m venv .env
             source .env/bin/activate
             maturin build
-      - store_artifacts:
-          path: /home/circleci/project/src/python_wrapper/target/wheels/natspec_parser-0.2.0-cp38-cp38-manylinux_2_28_x86_64.whl
 
 workflows:
   python-package:
