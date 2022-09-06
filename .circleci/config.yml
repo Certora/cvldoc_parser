@@ -2,10 +2,10 @@ version: 2.1
 jobs:
   build_macos_wheels:
     docker: 
-      - image: cimg/rust:1.
+      - image: cimg/rust:1.62
     steps:
       - checkout
-      - run 
+      - run: 
         name: "display rust versions"
         command: |
           rustup --version
