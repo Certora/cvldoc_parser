@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build-the-package:
+  build-wheels:
     docker:
       - image: messense/manylinux2014-cross:x86_64
     steps:
@@ -22,21 +22,16 @@ jobs:
               cargo --version
               rustc --version
       - run:
-          name: Install Deps 
+          name: "Install Maturin and Build Wheels"
           command: |
-            sudo apt install python3-venv python3-pip -y
-            pip install maturin
-      - run:
-          name: Build 
-          command: |
-            cd src/python_wrapper
-            # python3 -m venv .env
-            # source .env/bin/activate
-            maturin build
+            for PYBIN in /opt/python/cp3[6789]*/bin; do
+              "${PYBIN}/pip" install maturin install maturin
+              "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python" --release --manylinux 2014
+            done
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
 
 workflows:
   python-package:
     jobs:
-      - build-the-package
+      - build-wheels
