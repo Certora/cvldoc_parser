@@ -21,7 +21,7 @@ jobs:
           command: |
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
             pip3 install maturin
-            maturin build --target=aarch64-apple-darwin --universal2
+            maturin build --cargo-extra-args="--features python-extension" --target=aarch64-apple-darwin --universal2
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
 
