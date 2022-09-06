@@ -20,10 +20,12 @@ jobs:
           name: "build  project"
           command: |
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-            pip3 install maturin
-            maturin build --cargo-extra-args="--features python-extension" --target=aarch64-apple-darwin --universal2
+            pip3 install maturin cffi
+            echo "[lib]" >> Cargo.toml
+            echo 'crate-type = ["cdylib"]' >> Cargo.toml
+            maturin build --cargo-extra-args="--features python-extension" --target=aarch64-apple-darwin --universal2 --bindings=cffi
       - store_artifacts:
-          path: /root/project/src/python_wrapper/target/wheels/
+          path: /Users/distiller/project/target/wheels
 
   build-linux-wheels:
     docker:
