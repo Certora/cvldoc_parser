@@ -6,11 +6,11 @@ jobs:
     steps:
       - checkout
       - run: 
-        name: "display rust versions"
-        command: |
-          rustup --version
-          cargo --version
-          rustc --version
+          name: "display rust versions"
+          command: |
+            rustup --version
+            cargo --version
+            rustc --version
       # - run:
       #   name: "build  project"
       #   command: |
