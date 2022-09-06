@@ -11,7 +11,7 @@ jobs:
           rustup --version
           cargo --version
           rustc --version
-      - run
+      - run:
         name: "build  project"
         command: |
            rustup target install x86_64-apple-darwin aarch64-apple-darwin
