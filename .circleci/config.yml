@@ -1,6 +1,26 @@
 version: 2.1
 jobs:
-  build-wheels:
+  build_macos_wheels:
+    docker: 
+      - image: cimg/rust:1.
+    steps:
+      - checkout
+      - run 
+        name: "display rust versions"
+        command: |
+          rustup --version
+          cargo --version
+          rustc --version
+      - run
+        name: "build  project"
+        command: |
+           rustup target install x86_64-apple-darwin aarch64-apple-darwin
+           pip install maturin
+           maturin build --target=aarch64-apple-darwin --universal2
+      - store_artifacts:
+          path: /root/project/src/python_wrapper/target/wheels/
+
+  build-linux-wheels:
     docker:
       - image: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
@@ -30,4 +50,5 @@ jobs:
 workflows:
   python-package:
     jobs:
-      - build-wheels
+      - build-linux-wheels
+      - build_macos_wheels
