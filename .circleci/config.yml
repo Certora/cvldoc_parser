@@ -26,6 +26,12 @@ jobs:
             maturin build --target=aarch64-apple-darwin --universal2 --bindings=cffi
       - store_artifacts:
           path: /Users/distiller/project/target/wheels
+      - run:
+          name: "Upload to Test PyPI"
+          command: |
+            pip3 install --user twine
+            python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /Users/distiller/project/target/wheels/*
+
 
   build-linux-wheels:
     docker:
@@ -53,7 +59,7 @@ jobs:
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
       - run:
-            name: "Upload to test PyPi"
+            name: "Upload to Test PyPI"
             command: |
               /opt/python/cp310-cp310/bin/pip install --user twine
               /opt/python/cp310-cp310/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
