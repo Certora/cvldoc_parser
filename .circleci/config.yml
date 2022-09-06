@@ -46,6 +46,13 @@ jobs:
             done
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
+      - run:
+            name: Upload to test PyPi
+            command: |
+              pip3 install --user twine
+              python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
+              
+              
 
 workflows:
   python-package:
