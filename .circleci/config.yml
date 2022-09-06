@@ -1,16 +1,21 @@
 version: 2.1
 jobs:
   build_macos_wheels:
-    docker: 
-      - image: cimg/rust:1.62
+    macos:
+      xcode: 13.4.1
     steps:
       - checkout
-      - run: 
-          name: "display rust versions"
+      - run:
+          name: "Install Rust"
           command: |
-            rustup --version
-            cargo --version
-            rustc --version
+              curl "https://sh.rustup.rs" -o "rust-init.sh"
+              chmod +x "rust-init.sh"
+              ./rust-init.sh -y --default-toolchain stable --no-modify-path --profile minimal
+              export PATH="$HOME/.cargo/bin:$PATH"
+              echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+              rustup --version
+              cargo --version
+              rustc --version
       - run:
           name: "install python and pip"
           command: |
@@ -32,7 +37,6 @@ jobs:
       - run:
           name: "Install Rust"
           command: |
-              yum install curl
               curl "https://sh.rustup.rs" -o "rust-init.sh"
               chmod +x "rust-init.sh"
               ./rust-init.sh -y --default-toolchain stable --no-modify-path --profile minimal
@@ -53,10 +57,8 @@ jobs:
       - run:
             name: "Upload to test PyPi"
             command: |
-              pip3 install --user twine
-              python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
-              
-              
+              /opt/python/cp310*/bin/pip install --user twine
+              /opt/python/cp310*/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
 
 workflows:
   python-package:
