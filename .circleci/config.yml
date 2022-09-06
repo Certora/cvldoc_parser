@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build-wheels:
     docker:
-      - image: messense/manylinux2014-cross:x86_64
+      - image: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - checkout
       - run:
@@ -26,7 +26,7 @@ jobs:
           command: |
             for PYBIN in /opt/python/cp3[789]*/bin; do
               "${PYBIN}/pip" install maturin
-              "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python" --release --manylinux 2014
+              "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python"
             done
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
