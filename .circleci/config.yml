@@ -12,6 +12,10 @@ jobs:
             cargo --version
             rustc --version
       - run:
+          name: "install python and pip"
+          command: |
+            sudo apt install python3-venv python3-pip -y
+      - run:
           name: "build  project"
           command: |
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
