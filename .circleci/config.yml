@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build_macos_wheels:
+  build-macos-wheels:
     macos:
       xcode: 13.4.1
     steps:
@@ -17,14 +17,10 @@ jobs:
               cargo --version
               rustc --version
       - run:
-          name: "install python and pip"
-          command: |
-            sudo apt install python3-venv python3-pip -y
-      - run:
           name: "build  project"
           command: |
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-            pip install maturin
+            pip3 install maturin
             maturin build --target=aarch64-apple-darwin --universal2
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
@@ -57,11 +53,11 @@ jobs:
       - run:
             name: "Upload to test PyPi"
             command: |
-              /opt/python/cp310*/bin/pip install --user twine
-              /opt/python/cp310*/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
+              /opt/python/cp310-cp310/bin/pip install --user twine
+              /opt/python/cp310-cp310/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
 
 workflows:
-  python-package:
+  build-and-publish:
     jobs:
       - build-linux-wheels
-      - build_macos_wheels
+      - build-macos-wheels
