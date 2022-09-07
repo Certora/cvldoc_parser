@@ -35,7 +35,7 @@ jobs:
           name: "Install Maturin and Build Wheels"
           command: |
             for PYBIN in /opt/python/cp3{7,8,9,10,11}*/bin; do
-              "${PYBIN}/pip" install maturin
+              # "${PYBIN}/pip" install maturin
               "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python"
               "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python --target x86_64-pc-windows-gnu"
             done
@@ -51,11 +51,12 @@ jobs:
     executor: win/server-2022
     steps:
       - checkout
-      - rust/install
+      - rust/install:
+        shell: bash.exe
       
 workflows:
   build-and-publish:
     jobs:
-     # - build-linux-wheels
+      - build-linux-wheels
      # - build-macos-wheels
       - build-windows-wheels
