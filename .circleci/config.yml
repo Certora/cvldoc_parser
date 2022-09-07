@@ -9,10 +9,10 @@ jobs:
       - checkout
       - rust/install
       - run:
-          name: "build  project"
+          name: "Build Project"
           command: |
-            rustup target install x86_64-apple-darwin aarch64-apple-darwin
             pip3 install maturin cffi
+            rustup target install x86_64-apple-darwin aarch64-apple-darwin
             echo "[lib]" >> Cargo.toml
             echo 'crate-type = ["cdylib"]' >> Cargo.toml
             maturin build --target=aarch64-apple-darwin --universal2 --bindings=cffi
