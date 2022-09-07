@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
+  win: circleci/windows@4.1.1
 jobs:
   build-macos-wheels:
     macos:
@@ -21,7 +22,7 @@ jobs:
       - run:
           name: "Upload to Test PyPI"
           command: |
-            pip3 install --user twine
+            pip3 install -- user twine
             python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /Users/distiller/project/target/wheels/*
 
   build-linux-wheels:
@@ -45,8 +46,14 @@ jobs:
               /opt/python/cp310-cp310/bin/pip install --user twine
               /opt/python/cp310-cp310/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
 
+  build-windows-wheels:
+    executor: win/server-2022
+    steps:
+      - run: Write-Host 'Hello, Windows'
+      
 workflows:
   build-and-publish:
     jobs:
-      - build-linux-wheels
-      - build-macos-wheels
+     # - build-linux-wheels
+     # - build-macos-wheels
+      - build-windows-wheels
