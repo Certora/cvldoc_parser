@@ -48,11 +48,13 @@ jobs:
               /opt/python/cp310-cp310/bin/python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /root/project/src/python_wrapper/target/wheels/*
 
   build-windows-wheels:
-    executor: win/server-2022
+    executor: win/default
     steps:
       - checkout
-      - rust/install:
-        shell: bash.exe
+      - run:
+          command: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          shell: bash.exe
+
       
 workflows:
   build-and-publish:
