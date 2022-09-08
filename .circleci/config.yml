@@ -55,8 +55,7 @@ jobs:
           command: |
             curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
             export PATH="$HOME/.cargo/bin:$PATH"
-            ls $HOME/.cargo/bin
-            maturin --version
+            pip3 install maturin
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc
           shell: bash.exe
