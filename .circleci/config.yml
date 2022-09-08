@@ -62,8 +62,15 @@ jobs:
             echo "git-fetch-with-cli = true" >>  ~/.cargo/config
             echo "[lib]" >> Cargo.toml
             echo 'crate-type = ["cdylib"]' >> Cargo.toml
-            maturin build --target=x86_64-pc-windows-msvc --bindings=cffi
+            maturin build --target=x86_64-pc-windows-msvc --bindings=cffi -i $(which python)
           shell: bash.exe
+      - store_artifacts:
+          path: C:\Documents and Settings\circleci\project\target\wheels
+      - run:
+          name: "Upload to Test PyPI"
+          command: |
+            pip install --user twine
+            python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} C:\Documents and Settings\circleci\project\target\wheels*
 
 workflows:
   build-and-publish:
