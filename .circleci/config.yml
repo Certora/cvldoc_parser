@@ -56,9 +56,13 @@ jobs:
             python -m pip install --upgrade pip
             curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
             export PATH="$HOME/.cargo/bin:$PATH"
-            pip install maturin
+            pip install maturin cffi
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
-            maturin build --target=x86_64-pc-windows-msvc
+            echo "[net]" >>  ~/.cargo/config
+            echo "git-fetch-with-cli = true" >>  ~/.cargo/config
+            echo "[lib]" >> Cargo.toml
+            echo 'crate-type = ["cdylib"]' >> Cargo.toml
+            maturin build --target=x86_64-pc-windows-msvc --bindings=cffi
           shell: bash.exe
 
 workflows:
