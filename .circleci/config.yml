@@ -52,6 +52,7 @@ jobs:
       - checkout
       - run:
           command: |
+            python -m pip install --upgrade pip
             curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
             export PATH="$HOME/.cargo/bin:$PATH"
             pip install maturin
