@@ -52,13 +52,17 @@ jobs:
     steps:
       - checkout
       - run:
-          command: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          command: |
+            curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
+            export PATH="~/.cargo/bin:$PATH"
+            rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
+            maturin build
           shell: bash.exe
 
       
 workflows:
   build-and-publish:
     jobs:
-      - build-linux-wheels
+     # - build-linux-wheels
      # - build-macos-wheels
       - build-windows-wheels
