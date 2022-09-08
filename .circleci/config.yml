@@ -55,6 +55,7 @@ jobs:
             for PYBIN in /opt/python/cp3{7,8,9,10,11}*/bin; do
               "${PYBIN}/pip" install maturin
               "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python"
+              "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python --target x86_64-pc-windows-gnu"
             done
       - store_artifacts:
           path: /root/project/src/python_wrapper/target/wheels/
