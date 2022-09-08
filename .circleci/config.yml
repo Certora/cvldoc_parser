@@ -22,7 +22,7 @@ jobs:
       - run:
           name: "Upload to Test PyPI"
           command: |
-            pip3 install -- user twine
+            pip3 install --user twine
             python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /Users/distiller/project/target/wheels/*
 
   build-linux-wheels:
@@ -35,7 +35,7 @@ jobs:
           name: "Install Maturin and Build Wheels"
           command: |
             for PYBIN in /opt/python/cp3{7,8,9,10,11}*/bin; do
-              # "${PYBIN}/pip" install maturin
+              "${PYBIN}/pip" install maturin
               "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python"
               "${PYBIN}/maturin" build -m src/python_wrapper/Cargo.toml -i "${PYBIN}/python --target x86_64-pc-windows-gnu"
             done
@@ -61,7 +61,6 @@ jobs:
           name: Install Rust
           command: |
             curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
-            export PATH="$HOME/.cargo/bin:$PATH"
           shell: bash.exe
       - run:
           name: Fix Cargo Config and Toml
@@ -74,7 +73,8 @@ jobs:
       - run:
           name: Build Wheels
           command: |
-            # rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
+            export PATH="$HOME/.cargo/bin:$PATH"
+            rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=cffi -i $(which python)
           shell: bash.exe
       - store_artifacts:
