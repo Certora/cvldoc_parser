@@ -64,12 +64,13 @@ jobs:
             maturin build --target=x86_64-pc-windows-msvc --bindings=cffi -i $(which python)
           shell: bash.exe
       - store_artifacts:
-          path: C:\Documents and Settings\circleci\project\target\wheels
+          path: .\target\wheels
       - run:
           name: "Upload to Test PyPI"
           command: |
             pip install --user twine
-            python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} C:\Documents and Settings\circleci\project\target\wheels*
+            python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} target/wheels/*
+          shell: bash.exe
 
 workflows:
   build-and-publish:
