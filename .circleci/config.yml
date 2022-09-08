@@ -51,16 +51,29 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Pip Dependecies
           command: |
             python -m pip install --upgrade pip
+            pip install maturin cffi
+          shell: bash.exe
+      - run:
+          name: Install Rust
+          command: |
             curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
             export PATH="$HOME/.cargo/bin:$PATH"
-            pip install maturin cffi
-            rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
+          shell: bash.exe
+      - run:
+          name: Fix Cargo Config and Toml
+          command: |
             echo "[net]" >>  ~/.cargo/config
             echo "git-fetch-with-cli = true" >>  ~/.cargo/config
             echo "[lib]" >> Cargo.toml
             echo 'crate-type = ["cdylib"]' >> Cargo.toml
+          shell: bash.exe
+      - run:
+          name: Build Wheels
+          command: |
+            # rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=cffi -i $(which python)
           shell: bash.exe
       - store_artifacts:
@@ -75,6 +88,6 @@ jobs:
 workflows:
   build-and-publish:
     jobs:
-     # - build-linux-wheels
-     # - build-macos-wheels
+      - build-linux-wheels
+      - build-macos-wheels
       - build-windows-wheels
