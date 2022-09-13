@@ -75,9 +75,7 @@ pub enum Severity {
 #[pyclass(module = "natspec_parser")]
 pub struct FreeForm {
     #[pyo3(get)]
-    pub header: String,
-    #[pyo3(get)]
-    pub block: Option<String>,
+    pub text: String,
     #[pyo3(get)]
     pub range: Range,
 }
@@ -111,7 +109,6 @@ impl FreeForm {
             .collect()
     }
 }
-
 
 #[derive(Debug, Clone)]
 #[pyclass(module = "natspec_parser")]
@@ -172,7 +169,6 @@ impl AssociatedElement {
     fn __repr__(&self) -> String {
         format!("{:?}", self.0)
     }
-
 }
 
 #[derive(Debug, Clone)]

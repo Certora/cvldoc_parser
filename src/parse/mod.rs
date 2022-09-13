@@ -7,18 +7,14 @@ use crate::util::span_to_range::Spanned;
 use builder::NatSpecBuilder;
 use chumsky::prelude::*;
 use helpers::*;
+use itertools::Itertools;
 
 fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
-    let padding_before_header = horizontal_ws()
-        .then(just('#'))
-        .then(horizontal_ws())
-        .boxed();
-
     let slashes = just('/').repeated().at_least(4);
     let thick_slashed_padding = slashes.then(newline_or_end());
 
-    let slashed_header = slashes
-        .ignore_then(padding_before_header.clone())
+    let slashed_free_form_line = slashes
+        .ignore_then(horizontal_ws())
         .ignore_then(take_to_newline_or_end())
         .collect()
         .map(|line: String| {
@@ -27,15 +23,22 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         })
         .boxed();
 
-    let slashed_single_line_free_form = slashed_header.clone();
-    let slashed_thick_free_form = slashed_header.padded_by(thick_slashed_padding);
+    let slashed_free_form = slashed_free_form_line
+        .clone()
+        .repeated()
+        .at_least(1)
+        .map(|body| body.into_iter().join("\n"))
+        .boxed();
+    let slashed_thick_free_form = slashed_free_form_line
+        .padded_by(thick_slashed_padding)
+        .boxed();
 
     let stars = just('*').repeated().at_least(3);
     let thick_starred_padding = just('/').then(stars).then(just('/')).then(newline_or_end());
 
     let starred_header = just('/')
         .ignore_then(stars)
-        .ignore_then(padding_before_header)
+        .ignore_then(horizontal_ws())
         .ignore_then(take_to_starred_terminator())
         .then_ignore(newline_or_end())
         .collect()
@@ -48,30 +51,31 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
     let starred_single_line_free_form = starred_header.clone();
     let starred_thick_free_form = starred_header.padded_by(thick_starred_padding).boxed();
 
-    let free_form_single_line = choice((
-        slashed_single_line_free_form,
-        slashed_thick_free_form,
-        starred_single_line_free_form,
-        starred_thick_free_form,
-    ))
-    .map_with_span(|header, span| NatSpecBuilder::FreeFormComment {
-        header,
-        block: None,
-        span,
-    });
-
-    let multi_line_first_line = just('/').then(stars).then(newline()).boxed();
-    let multi_line_body = take_until(just('#'))
-        .ignore_then(take_to_starred_terminator())
+    let starred_multi_line_first_line = just("/***").then(newline()).boxed();
+    let starred_body = take_to_starred_terminator()
         .then_ignore(newline_or_end())
         .collect()
+        .map(|body: String| {
+            let padding: &[_] = &[' ', '\t', '*', '\n'];
+            body.trim_end()
+                .lines()
+                .map(|line| line.trim_matches(padding))
+                .join("\n")
+        })
         .boxed();
-    let free_form_multi_line = multi_line_first_line
-        .ignore_then(multi_line_body)
-        .map_with_span(NatSpecBuilder::free_form_multi_line_from_body_and_span)
+    let starred_free_form = starred_multi_line_first_line
+        .ignore_then(starred_body)
         .boxed();
 
-    choice((free_form_single_line, free_form_multi_line)).boxed()
+    choice([
+        slashed_thick_free_form,
+        slashed_free_form,
+        starred_free_form,
+        starred_thick_free_form,
+        starred_single_line_free_form,
+    ])
+    .map_with_span(|text, span| NatSpecBuilder::FreeFormComment { text, span })
+    .boxed()
 }
 
 fn commented_out_block<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {

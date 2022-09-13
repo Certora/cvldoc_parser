@@ -2,13 +2,11 @@ use crate::util::span_to_range::{RangeConverter, Span, Spanned};
 use crate::{AssociatedElement, DocumentationTag, NatSpec, Tag};
 use color_eyre::eyre::bail;
 use color_eyre::Report;
-use itertools::Itertools;
 
 #[derive(Debug, Clone)]
 pub enum NatSpecBuilder {
     FreeFormComment {
-        header: String,
-        block: Option<String>,
+        text: String,
         span: Span,
     },
     Documentation {
@@ -24,21 +22,11 @@ pub enum NatSpecBuilder {
 impl NatSpecBuilder {
     pub fn build_with_converter(self, converter: RangeConverter) -> Result<NatSpec, Report> {
         match self {
-            NatSpecBuilder::FreeFormComment {
-                header,
-                block,
-                span,
-            } => {
-                let range = converter.to_range(span);
-                let free_form = match block {
-                    Some(block) => NatSpec::MultiLineFreeForm {
-                        header,
-                        block,
-                        range,
-                    },
-                    _ => NatSpec::SingleLineFreeForm { header, range },
+            NatSpecBuilder::FreeFormComment { text, span } => {
+                let free_form = NatSpec::FreeForm {
+                    text,
+                    range: converter.to_range(span),
                 };
-
                 Ok(free_form)
             }
             NatSpecBuilder::Documentation {
@@ -134,35 +122,6 @@ impl NatSpecBuilder {
         }
 
         tags
-    }
-
-    pub(super) fn free_form_multi_line_from_body_and_span(
-        body: String,
-        span: Span,
-    ) -> NatSpecBuilder {
-        let padding: &[_] = &[' ', '\t', '*', '\n'];
-        let mut lines = body.lines().map(|line| line.trim_matches(padding));
-
-        let header = lines
-            .next()
-            .map(String::from)
-            .expect("must exist from parser definition");
-
-        let block = {
-            let joined = lines.filter(|line| !line.is_empty()).join("\n");
-
-            if !joined.is_empty() {
-                Some(joined)
-            } else {
-                None
-            }
-        };
-
-        NatSpecBuilder::FreeFormComment {
-            span,
-            header,
-            block,
-        }
     }
 }
 

@@ -3,16 +3,6 @@ use crate::{AssociatedElement, Param, Ty};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-// enum Token {
-//     Block(String),
-//     Rule,
-//     Methods,
-//     Invariant,
-//     Function,
-//     Ghost,
-//     Definition,
-// }
-
 //grabs all text between a pair of curly brackets, including the brackets.
 //it keeps going through nested brackets, until it find a closing bracket that
 //matches the opening curly bracket (that is, the string up to that point is "balanced")

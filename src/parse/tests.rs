@@ -54,32 +54,44 @@ fn free_form_comments() {
 
     let parsed = parse_src(src);
 
+    assert_eq!(parsed.len(), 5);
+
     assert_eq!(
-        parsed,
-        vec![
-            NatSpec::SingleLineFreeForm {
-                header: "Section example".to_string(),
-                range: range_from((0, 0), (1, 0))
-            },
-            NatSpec::SingleLineFreeForm {
-                header: "Centered example".to_string(),
-                range: range_from((2, 0), (3, 0))
-            },
-            NatSpec::SingleLineFreeForm {
-                header: "Thick centered example".to_string(),
-                range: range_from((4, 0), (7, 0))
-            },
-            NatSpec::SingleLineFreeForm {
-                header: "Thick example".to_string(),
-                range: range_from((8, 0), (11, 0))
-            },
-            NatSpec::MultiLineFreeForm {
-                header: "Multiline example".to_string(),
-                block: "Additional detail\nand more info".to_string(),
-                range: range_from((12, 0), (17, 0))
-            },
-        ]
-    )
+        parsed[0],
+        NatSpec::FreeForm {
+            text: "# Section example".to_string(),
+            range: range_from((0, 0), (1, 0))
+        }
+    );
+    assert_eq!(
+        parsed[1],
+        NatSpec::FreeForm {
+            text: "# Centered example".to_string(),
+            range: range_from((2, 0), (3, 0))
+        }
+    );
+
+    assert_eq!(
+        parsed[2],
+        NatSpec::FreeForm {
+            text: "# Thick centered example".to_string(),
+            range: range_from((4, 0), (7, 0))
+        }
+    );
+    assert_eq!(
+        parsed[3],
+        NatSpec::FreeForm {
+            text: "# Thick example".to_string(),
+            range: range_from((8, 0), (11, 0))
+        }
+    );
+    assert_eq!(
+        parsed[4],
+        NatSpec::FreeForm {
+            text: "# Multiline example\nAdditional detail\nand more info".to_string(),
+            range: range_from((12, 0), (17, 0))
+        }
+    );
 }
 
 fn range_from((s_line, s_character): (u32, u32), (e_line, e_character): (u32, u32)) -> Range {
@@ -342,12 +354,11 @@ fn invariants() {
     */
     invariant validOperator(address operator)
             beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 )
-    
-    
+
     /**
          @title Valid state of an operator ❌.
         @notice Operators with assets must have an owner, a beneficiary, and an authorizer.
-    
+
             (unbondedValue(o) + lockedBonds(o)) > 0 ⟹
                 ( ownerOf(o) ≠ 0 ⋀ beneficiaryOf(o) ≠ 0 ⋀ authorizerOf(o) ≠ 0 )
     */
@@ -356,18 +367,22 @@ fn invariants() {
         "#};
 
     let parsed = parse_src(src);
+    assert_eq!(parsed.len(), 2);
 
-    for (i, associated) in parsed.iter().map(NatSpec::associated_element).enumerate() {
-        let associated = associated.unwrap();
-        println!("natspec {i}:");
-        println!("{associated:?}");
-    }
+    assert_matches!(
+        parsed[0].associated_element().unwrap(),
+        AssociatedElement::Invariant { .. }
+    );
+    assert_matches!(
+        parsed[1].associated_element().unwrap(),
+        AssociatedElement::Definition { .. }
+    );
 }
 
 #[test]
 fn rules_without_parameters() {
     let src = indoc! {r#"
-    // Burning a larger amount of a token must reduce that token's balance more 
+    /// Burning a larger amount of a token must reduce that token's balance more 
     /// than burning a smaller amount.
     /// n.b. This rule holds for `burnBatch` as well due to rules establishing 
     /// appropriate equivance between `burn` and `burnBatch` methods.
@@ -402,4 +417,38 @@ fn rules_without_parameters() {
         natspec.as_ref().and_then(NatSpec::associated_element),
         Some(AssociatedElement::Rule { .. })
     );
+}
+
+#[test]
+fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
+    let src = indoc! {r#"
+    //// ## Verification of ERC1155Burnable
+    //// 
+    //// `ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal
+    //// methods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,
+    //// adding a requirement that the caller of either method be the account holding
+    //// the tokens or approved to act on that account's behalf.
+    //// 
+    //// ### Assumptions and Simplifications
+    //// 
+    //// - No changes made using the harness
+    //// 
+    //// ### Properties
+
+    methods {
+        balanceOf(address, uint256) returns uint256 envfree
+        isApprovedForAll(address,address) returns bool envfree
+    }
+        "#};
+
+    let natspec = parse_src(src)
+        .into_iter()
+        .at_most_one()
+        .expect("parses to exactly one element");
+
+    if let Some(NatSpec::FreeForm { text, .. }) = natspec {
+        assert_eq!(text, "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties");
+    } else {
+        panic!("should have been parsed as documentation")
+    }
 }
