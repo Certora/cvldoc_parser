@@ -4,6 +4,7 @@ version = "0.2.1"
 edition = "2021"
 
 [dependencies]
+assert_matches = "1.5.0"
 chumsky = { git = "https://github.com/zesterer/chumsky" }
 clap = { version = "3.2.17", features = ["cargo", "derive"] }
 color-eyre = "0.6.2"

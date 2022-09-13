@@ -1,6 +1,8 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, NatSpec, Param, Tag};
+use assert_matches::assert_matches;
 use indoc::indoc;
+use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
@@ -218,7 +220,7 @@ fn comments_in_associated_element() {
         .and_then(NatSpec::associated_element)
         .unwrap();
 
-    assert!(matches!(associated, AssociatedElement::Rule { .. }));
+    assert_matches!(associated, AssociatedElement::Rule { .. });
     assert_eq!(associated.name().unwrap(), "ofLaw");
 
     let expected_params = [param!("string", "lapd"), param!("string", "csny")];
@@ -360,4 +362,44 @@ fn invariants() {
         println!("natspec {i}:");
         println!("{associated:?}");
     }
+}
+
+#[test]
+fn rules_without_parameters() {
+    let src = indoc! {r#"
+    // Burning a larger amount of a token must reduce that token's balance more 
+    /// than burning a smaller amount.
+    /// n.b. This rule holds for `burnBatch` as well due to rules establishing 
+    /// appropriate equivance between `burn` and `burnBatch` methods.
+    rule burnAmountProportionalToBalanceReduction {
+        storage beforeBurn = lastStorage;
+        env e;
+        
+        address holder; uint256 token;
+        mathint startingBalance = balanceOf(holder, token);
+        uint256 smallBurn; uint256 largeBurn;
+        require smallBurn < largeBurn;
+
+        // smaller burn amount
+        burn(e, holder, token, smallBurn) at beforeBurn;
+        mathint smallBurnBalanceChange = startingBalance - balanceOf(holder, token);
+
+        // larger burn amount
+        burn(e, holder, token, largeBurn) at beforeBurn;
+        mathint largeBurnBalanceChange = startingBalance - balanceOf(holder, token);
+
+        assert smallBurnBalanceChange < largeBurnBalanceChange, 
+            "A larger burn must lead to a larger decrease in balance";
+    }
+        "#};
+
+    let natspec = parse_src(src)
+        .into_iter()
+        .at_most_one()
+        .expect("parses to exactly one element");
+
+    assert_matches!(
+        natspec.as_ref().and_then(NatSpec::associated_element),
+        Some(AssociatedElement::Rule { .. })
+    );
 }
