@@ -1,4 +1,7 @@
 # Changelog
+## [0.2.2] - 2022-09-13
+### Fixed
+- Rules without parameters were not detected
 
 ## [0.2.1] - 2022-08-29
 ### Changed
