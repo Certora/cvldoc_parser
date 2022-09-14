@@ -75,54 +75,21 @@ impl From<Documentation> for NatSpecR {
     }
 }
 
-impl FreeForm {
-    pub fn with_block(header: String, block: String, range: RangeR) -> FreeForm {
-        FreeForm {
-            header,
-            block: Some(block),
-            range: range.into(),
-        }
-    }
-
-    pub fn without_block(header: String, range: RangeR) -> FreeForm {
-        FreeForm {
-            header,
-            block: None,
-            range: range.into(),
-        }
-    }
-}
-
 impl From<FreeForm> for NatSpecR {
-    fn from(
-        FreeForm {
-            header,
-            block,
-            range,
-        }: FreeForm,
-    ) -> Self {
-        let range = range.into();
-        match block {
-            Some(block) => NatSpecR::MultiLineFreeForm {
-                header,
-                block,
-                range,
-            },
-            None => NatSpecR::SingleLineFreeForm { header, range },
+    fn from(FreeForm { text, range }: FreeForm) -> Self {
+        NatSpecR::FreeForm {
+            text,
+            range: range.into(),
         }
     }
 }
 
 pub fn natspec_to_py_object(natspec: NatSpecR, py: Python<'_>) -> Py<PyAny> {
     match natspec {
-        NatSpecR::SingleLineFreeForm { header, range } => {
-            FreeForm::without_block(header, range).into_py(py)
+        NatSpecR::FreeForm { text, range } => {
+            let range = range.into();
+            FreeForm { text, range }.into_py(py)
         }
-        NatSpecR::MultiLineFreeForm {
-            header,
-            block,
-            range,
-        } => FreeForm::with_block(header, block, range).into_py(py),
         NatSpecR::Documentation {
             tags,
             associated,

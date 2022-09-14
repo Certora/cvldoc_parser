@@ -13,14 +13,8 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NatSpec {
-    SingleLineFreeForm {
-        header: String,
-        range: Range,
-    },
-
-    MultiLineFreeForm {
-        header: String,
-        block: String,
+    FreeForm {
+        text: String,
         range: Range,
     },
 
