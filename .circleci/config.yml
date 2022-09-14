@@ -20,11 +20,12 @@ jobs:
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
             maturin build --target=aarch64-apple-darwin --universal2 --bindings=pyo3
       - store_artifacts:
-          path: /Users/distiller/project/target/wheels
+          path: /Users/distiller/project/src/python_wrapper/target/wheels
       - run:
           name: "Upload to Test PyPI"
           command: |
             pip3 install --user twine
+            export PATH=/Users/distiller/Library/Python/3.9/bin:${PATH}
             python3 -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} /Users/distiller/project/src/python_wrapper/target/wheels/*
 
   build-linux-wheels:
@@ -79,12 +80,13 @@ jobs:
             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3 -i $(which python)
           shell: bash.exe
       - store_artifacts:
-          path: .\target\wheels
+          path: .\src\python_wrapper\target\wheels
       - run:
           name: "Upload to Test PyPI"
           command: |
             pip install --user twine
-            python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} target/wheels/*
+            # export PATH=${HOME}/AppData/Roaming/Python/Python37/Scripts:${PATH}
+            python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} src/python_wrapper/target/wheels/*
           shell: bash.exe
 
 workflows:
