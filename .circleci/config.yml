@@ -12,10 +12,11 @@ jobs:
       - run:
           name: "Build Project"
           command: |
-            pip3 install maturin pyo3
+            pip3 install maturin
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-            echo "[lib]" >> Cargo.toml
-            echo 'crate-type = ["cdylib"]' >> Cargo.toml
+            pwd
+#            echo "[lib]" >> Cargo.toml
+#            echo 'crate-type = ["cdylib"]' >> Cargo.toml
             maturin build --target=aarch64-apple-darwin --universal2  --bindings=pyo3
       - store_artifacts:
           path: /Users/distiller/project/target/wheels
@@ -55,7 +56,7 @@ jobs:
           name: Install Pip Dependecies
           command: |
             python -m pip install --upgrade pip
-            pip install maturin pyo3
+            pip install maturin 
           shell: bash.exe
       - run:
           name: Install Rust
