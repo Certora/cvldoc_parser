@@ -1,4 +1,8 @@
 # Changelog
+## [0.3.2] - 2022-09-15
+### Changed
+- Updated dependencies
+
 ## [0.3.0] - 2022-09-13
 ### Added
 - Multi-line freeform comments with `////` are now supported. They concatenate into a single comment.
