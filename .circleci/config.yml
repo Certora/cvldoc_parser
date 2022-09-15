@@ -77,7 +77,7 @@ jobs:
             export PATH=${HOME}/.cargo/bin:$PATH
             cd src/python_wrapper
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
-            maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3 -i $(which python)
+            maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
           shell: bash.exe
       - store_artifacts:
           path: .\src\python_wrapper\target\wheels
