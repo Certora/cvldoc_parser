@@ -1,5 +1,6 @@
 mod wrapper_structs;
 
+use ::natspec_parser::NatSpec;
 use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
 use itertools::Itertools;
@@ -8,7 +9,7 @@ use ropey::Rope;
 use std::{fs::File, io::Read};
 use wrapper_structs::conversions::natspec_to_py_object;
 
-fn natspecs_from_path(path: &str) -> Result<Vec<natspec_parser::NatSpec>> {
+fn natspecs_from_path(path: &str) -> Result<Vec<NatSpec>> {
     let mut file = File::open(&path).wrap_err_with(|| format!("file does not exist: {path}"))?;
 
     let rope = {
@@ -19,7 +20,7 @@ fn natspecs_from_path(path: &str) -> Result<Vec<natspec_parser::NatSpec>> {
         Rope::from_str(&data)
     };
 
-    let natspecs = natspec_parser::NatSpec::from_rope(rope);
+    let natspecs = NatSpec::from_rope(rope);
 
     Ok(natspecs)
 }
