@@ -1,6 +1,7 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, NatSpec, Param, Tag};
 use assert_matches::assert_matches;
+use color_eyre::eyre::{self, bail};
 use indoc::indoc;
 use itertools::Itertools;
 use lsp_types::{Position, Range};
@@ -19,6 +20,13 @@ macro_rules! param {
     ($ty:expr, $name:expr) => {
         ($ty.to_string(), Some($name.to_string()))
     };
+}
+
+fn parse_to_exactly_one_element(src: &str) -> eyre::Result<NatSpec> {
+    match parse_src(src).into_iter().at_most_one() {
+        Ok(Some(natspec)) => Ok(natspec),
+        _ => bail!("should parse to exactly one element"),
+    }
 }
 
 fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
@@ -441,14 +449,34 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     }
         "#};
 
-    let natspec = parse_src(src)
-        .into_iter()
-        .at_most_one()
-        .expect("parses to exactly one element");
+    let natspec = parse_to_exactly_one_element(src).unwrap();
 
-    if let Some(NatSpec::FreeForm { text, .. }) = natspec {
+    if let NatSpec::FreeForm { text, .. } = natspec {
         assert_eq!(text, "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties");
     } else {
         panic!("should have been parsed as documentation")
     }
 }
+
+// #[test]
+// fn dev_tags() {
+//     let src = indoc! {r#"
+//     /**
+//      * @title totalSupply_LE_balance
+//      * @notice invariant to assure that the total supply is always under the balance amount.
+//      *  the variant has no parameters.
+//      * @dev assume currentContract is initiated.
+//      */
+//     invariant totalSupply_LE_balance()
+//         totalSupply() <= underlying.balanceOf(currentContract)
+//         {
+//             preserved with(env e) {
+//                 require e.msg.sender != currentContract;
+//             }
+//         }
+//         "#};
+
+//     let natspec = parse_to_exactly_one_element(src).unwrap();
+
+//     dbg!(&natspec, natspec.enumerate_diagnostics());
+// }
