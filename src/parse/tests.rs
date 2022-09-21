@@ -1,6 +1,8 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
+use color_eyre::eyre::{self, bail};
+use color_eyre::Report;
 use indoc::indoc;
 use itertools::Itertools;
 use lsp_types::{Position, Range};
@@ -23,6 +25,13 @@ macro_rules! param {
 
 fn data_of_first(docs: &[CvlDoc]) -> Option<&DocData> {
     docs.first().map(|doc| &doc.data)
+}
+
+fn parse_to_exactly_one_element(src: &str) -> Result<CvlDoc, Report> {
+    match parse_src(src).into_iter().at_most_one() {
+        Ok(Some(doc)) => Ok(doc),
+        _ => bail!("should parse to exactly one element"),
+    }
 }
 
 fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
@@ -394,11 +403,10 @@ fn rules_without_parameters() {
     }
         "#};
 
-    let parsed = parse_src(src);
-    let data = data_of_first(&parsed).unwrap();
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
     assert_matches!(
-        data.associated_element(),
+        parsed.data.associated_element(),
         Some(AssociatedElement::Rule { .. })
     );
 }
@@ -425,10 +433,9 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     }
         "#};
 
-    let parsed = parse_src(src);
-    let data = data_of_first(&parsed);
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
-    if let Some(DocData::FreeForm(text)) = data {
+    if let DocData::FreeForm(text) = parsed.data {
         assert_eq!(text, "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties");
     } else {
         panic!("should have been parsed as documentation")
