@@ -1,7 +1,7 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
-use color_eyre::eyre::{self, bail};
+use color_eyre::eyre::bail;
 use color_eyre::Report;
 use indoc::indoc;
 use itertools::Itertools;
