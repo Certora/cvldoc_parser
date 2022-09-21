@@ -1,7 +1,14 @@
 # Changelog
+## [0.4.0] - 2022-09-21
+### Changed
+- Changed all references from "NatSpec" to the new name, "CVLDoc"
+- `range` is no longer printed in `repr` of classes that have them, to reduce noise
+### Added
+- `raw` field is now captured, containing the entire text from beginning of capture
+
 ## [0.3.3] - 2022-09-15
 ### Changed
-- now using `abi3` bindings, to (hopefully!) support all Python versions with a single build
+- Now using `abi3` bindings, to (hopefully!) support all Python versions with a single build
 - Renamed crate (exported python module's name did not change)
 - Updated dependencies
 

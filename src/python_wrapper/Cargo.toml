@@ -1,16 +1,16 @@
 [package]
-name = "natspec_parser_py"
-version = "0.3.3"
+name = "cvldoc_parser_py"
+version = "0.4.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "natspec_parser"
+name = "cvldoc_parser"
 crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.17.1", features = ["extension-module", "abi3-py37"] }
-natspec_parser = { path = "../.." }
+cvldoc_parser = { path = "../.." }
 color-eyre = "0.6.2"
 indoc = "1.0.7"
 itertools = "0.10.4"
@@ -18,3 +18,4 @@ lsp-types = "0.93.1"
 ropey = "1.5.0"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
+derivative = "2.2.0"

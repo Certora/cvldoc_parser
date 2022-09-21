@@ -1,16 +1,17 @@
 use crate::util::span_to_range::RangeConverter;
-use crate::{AssociatedElement, NatSpec, Param, Tag};
+use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
-use color_eyre::eyre::{self, bail};
+use color_eyre::eyre::bail;
+use color_eyre::Report;
 use indoc::indoc;
 use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
 
-fn parse_src(src: &str) -> Vec<NatSpec> {
+fn parse_src(src: &str) -> Vec<CvlDoc> {
     let rope = Rope::from_str(src);
-    NatSpec::from_rope(rope)
+    CvlDoc::from_rope(rope)
 }
 
 macro_rules! param {
@@ -22,9 +23,13 @@ macro_rules! param {
     };
 }
 
-fn parse_to_exactly_one_element(src: &str) -> eyre::Result<NatSpec> {
+fn data_of_first(docs: &[CvlDoc]) -> Option<&DocData> {
+    docs.first().map(|doc| &doc.data)
+}
+
+fn parse_to_exactly_one_element(src: &str) -> Result<CvlDoc, Report> {
     match parse_src(src).into_iter().at_most_one() {
-        Ok(Some(natspec)) => Ok(natspec),
+        Ok(Some(doc)) => Ok(doc),
         _ => bail!("should parse to exactly one element"),
     }
 }
@@ -64,41 +69,30 @@ fn free_form_comments() {
 
     assert_eq!(parsed.len(), 5);
 
+    assert_eq!(parsed[0].range, range_from((0, 0), (1, 0)));
     assert_eq!(
-        parsed[0],
-        NatSpec::FreeForm {
-            text: "# Section example".to_string(),
-            range: range_from((0, 0), (1, 0))
-        }
+        parsed[0].data,
+        DocData::FreeForm("# Section example".to_string())
     );
+    assert_eq!(parsed[1].range, range_from((2, 0), (3, 0)));
     assert_eq!(
-        parsed[1],
-        NatSpec::FreeForm {
-            text: "# Centered example".to_string(),
-            range: range_from((2, 0), (3, 0))
-        }
+        parsed[1].data,
+        DocData::FreeForm("# Centered example".to_string()),
     );
-
+    assert_eq!(parsed[2].range, range_from((4, 0), (7, 0)));
     assert_eq!(
-        parsed[2],
-        NatSpec::FreeForm {
-            text: "# Thick centered example".to_string(),
-            range: range_from((4, 0), (7, 0))
-        }
+        parsed[2].data,
+        DocData::FreeForm("# Thick centered example".to_string()),
     );
+    assert_eq!(parsed[3].range, range_from((8, 0), (11, 0)));
     assert_eq!(
-        parsed[3],
-        NatSpec::FreeForm {
-            text: "# Thick example".to_string(),
-            range: range_from((8, 0), (11, 0))
-        }
+        parsed[3].data,
+        DocData::FreeForm("# Thick example".to_string()),
     );
+    assert_eq!(parsed[4].range, range_from((12, 0), (17, 0)));
     assert_eq!(
-        parsed[4],
-        NatSpec::FreeForm {
-            text: "# Multiline example\nAdditional detail\nand more info".to_string(),
-            range: range_from((12, 0), (17, 0))
-        }
+        parsed[4].data,
+        DocData::FreeForm("# Multiline example\nAdditional detail\nand more info".to_string()),
     );
 }
 
@@ -121,15 +115,15 @@ fn doc_tag_spans_match_source() {
             rule trees { }
         "};
 
-    let rope = Rope::from_str(src);
-    let converter = RangeConverter::new(rope.clone());
-    let natspecs: Vec<_> = NatSpec::from_rope(rope);
-
-    let tags = natspecs.first().and_then(NatSpec::tags).unwrap();
-    let tag_kinds: Vec<_> = tags.iter().map(|doc_tag| doc_tag.kind.clone()).collect();
+    let parsed = parse_src(src);
+    let tags = data_of_first(&parsed).and_then(DocData::tags).unwrap();
+    let tag_kinds = tags
+        .iter()
+        .map(|doc_tag| doc_tag.kind.clone())
+        .collect_vec();
     assert_eq!(
         tag_kinds,
-        vec![
+        [
             Tag::Notice,
             Tag::Title,
             Tag::Unexpected(String::from("author")),
@@ -138,15 +132,16 @@ fn doc_tag_spans_match_source() {
         ]
     );
 
-    let actual_tags: Vec<_> = tags
+    let converter = RangeConverter::new(Rope::from_str(src));
+    let actual_tags = tags
         .iter()
         .filter_map(|doc_tag| {
             let span = doc_tag.range.map(|range| converter.to_span(range))?;
             let actual_tag_from_src = &src[span];
             Some(actual_tag_from_src)
         })
-        .collect();
-    assert_eq!(actual_tags, vec!["@title", "@author", "@notice", "@dev"])
+        .collect_vec();
+    assert_eq!(actual_tags, ["@title", "@author", "@notice", "@dev"])
 }
 
 #[test]
@@ -165,16 +160,11 @@ fn doc_description_with_empty_line() {
                 string dog;
             }
         "};
-
     let parsed = parse_src(src);
-    let first_tag = parsed
-        .first()
-        .and_then(NatSpec::tags)
-        .and_then(<[_]>::first)
-        .unwrap();
+    let tags = data_of_first(&parsed).and_then(DocData::tags).unwrap();
 
-    assert_eq!(first_tag.kind, Tag::Notice);
-    assert_eq!(first_tag.description, "some stuff goes here\nmore stuff goes there\nlast line was empty\nand should have been ignored");
+    assert_eq!(tags[0].kind, Tag::Notice);
+    assert_eq!(tags[0].description, "some stuff goes here\nmore stuff goes there\nlast line was empty\nand should have been ignored");
 }
 
 #[test]
@@ -190,18 +180,17 @@ fn parsing_params() {
              * @notice why are you still reading this
              */
             invariant goodMath(
-                                uint a, 
+                                uint a,
                                 int b,
                                 string c
-                               ) 
+                               )
             {
             }
         "};
 
     let parsed = parse_src(src);
-    let associated = parsed
-        .first()
-        .and_then(NatSpec::associated_element)
+    let associated = data_of_first(&parsed)
+        .and_then(DocData::associated_element)
         .unwrap();
 
     assert_eq!(associated.name().unwrap(), "goodMath");
@@ -223,7 +212,7 @@ fn comments_in_associated_element() {
             /// parsing still works
             /**/
             //lorem ipsum dolor sit amet
-            rule 
+            rule
             ///// asdfasdfasdfasd
             ofLaw(string //randomtext
                        lapd
@@ -235,9 +224,8 @@ fn comments_in_associated_element() {
         "};
 
     let parsed = parse_src(src);
-    let associated = parsed
-        .first()
-        .and_then(NatSpec::associated_element)
+    let associated = data_of_first(&parsed)
+        .and_then(DocData::associated_element)
         .unwrap();
 
     assert_matches!(associated, AssociatedElement::Rule { .. });
@@ -256,15 +244,14 @@ fn commented_out_blocks_are_ignored() {
             rule sanity {
                 method f; env e; calldataarg args;
                 f(e, args);
-                assert false, 
+                assert false,
                     "This rule should always fail";
             }
             */
-
             /*
             /**
              * this one should not be parsed either.
-             * note that this is valid starred natspec 
+             * note that this is valid starred natspec
              * doc, and as such it ends with the
              * same terminator that ends a regular CVL comment
              * which could cause parsing ambiguities.
@@ -272,7 +259,7 @@ fn commented_out_blocks_are_ignored() {
             rule insanity {
                 method f; env e; calldataarg args;
                 f(e, args);
-                assert true, 
+                assert true,
                     "This rule should always pass";
             }
             */
@@ -300,7 +287,6 @@ fn commented_out_doc_followed_by_non_commented() {
             //     assert !lastReverted, "recovery mode must not fail";
             // }
 
-
             ///@title this is another rule with a doc
             /// this one's associated element is not ,
             /// commented out and so SHOULD be considered as
@@ -315,11 +301,12 @@ fn commented_out_doc_followed_by_non_commented() {
     let parsed = parse_src(src);
 
     assert_eq!(parsed.len(), 2);
-    assert!(parsed.iter().all(NatSpec::is_documentation));
+    assert!(parsed.iter().all(|doc| doc.data.is_documentation()));
 
-    assert!(parsed[0].associated_element().is_none());
+    assert!(parsed[0].data.associated_element().is_none());
     assert_eq!(
         parsed[1]
+            .data
             .associated_element()
             .and_then(AssociatedElement::name)
             .unwrap(),
@@ -344,8 +331,8 @@ fn grabbing_blocks() {
         "#};
 
     let parsed = parse_src(src);
-
-    let block = parsed[0]
+    let block = data_of_first(&parsed)
+        .unwrap()
         .associated_element()
         .and_then(AssociatedElement::block)
         .expect("could not capture code block");
@@ -378,11 +365,11 @@ fn invariants() {
     assert_eq!(parsed.len(), 2);
 
     assert_matches!(
-        parsed[0].associated_element().unwrap(),
+        parsed[0].data.associated_element().unwrap(),
         AssociatedElement::Invariant { .. }
     );
     assert_matches!(
-        parsed[1].associated_element().unwrap(),
+        parsed[1].data.associated_element().unwrap(),
         AssociatedElement::Definition { .. }
     );
 }
@@ -390,14 +377,14 @@ fn invariants() {
 #[test]
 fn rules_without_parameters() {
     let src = indoc! {r#"
-    /// Burning a larger amount of a token must reduce that token's balance more 
+    /// Burning a larger amount of a token must reduce that token's balance more
     /// than burning a smaller amount.
-    /// n.b. This rule holds for `burnBatch` as well due to rules establishing 
+    /// n.b. This rule holds for `burnBatch` as well due to rules establishing
     /// appropriate equivance between `burn` and `burnBatch` methods.
     rule burnAmountProportionalToBalanceReduction {
         storage beforeBurn = lastStorage;
         env e;
-        
+
         address holder; uint256 token;
         mathint startingBalance = balanceOf(holder, token);
         uint256 smallBurn; uint256 largeBurn;
@@ -411,18 +398,15 @@ fn rules_without_parameters() {
         burn(e, holder, token, largeBurn) at beforeBurn;
         mathint largeBurnBalanceChange = startingBalance - balanceOf(holder, token);
 
-        assert smallBurnBalanceChange < largeBurnBalanceChange, 
+        assert smallBurnBalanceChange < largeBurnBalanceChange,
             "A larger burn must lead to a larger decrease in balance";
     }
         "#};
 
-    let natspec = parse_src(src)
-        .into_iter()
-        .at_most_one()
-        .expect("parses to exactly one element");
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
     assert_matches!(
-        natspec.as_ref().and_then(NatSpec::associated_element),
+        parsed.data.associated_element(),
         Some(AssociatedElement::Rule { .. })
     );
 }
@@ -431,16 +415,16 @@ fn rules_without_parameters() {
 fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     let src = indoc! {r#"
     //// ## Verification of ERC1155Burnable
-    //// 
+    ////
     //// `ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal
     //// methods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,
     //// adding a requirement that the caller of either method be the account holding
     //// the tokens or approved to act on that account's behalf.
-    //// 
+    ////
     //// ### Assumptions and Simplifications
-    //// 
+    ////
     //// - No changes made using the harness
-    //// 
+    ////
     //// ### Properties
 
     methods {
@@ -449,34 +433,11 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     }
         "#};
 
-    let natspec = parse_to_exactly_one_element(src).unwrap();
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
-    if let NatSpec::FreeForm { text, .. } = natspec {
+    if let DocData::FreeForm(text) = parsed.data {
         assert_eq!(text, "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties");
     } else {
         panic!("should have been parsed as documentation")
     }
 }
-
-// #[test]
-// fn dev_tags() {
-//     let src = indoc! {r#"
-//     /**
-//      * @title totalSupply_LE_balance
-//      * @notice invariant to assure that the total supply is always under the balance amount.
-//      *  the variant has no parameters.
-//      * @dev assume currentContract is initiated.
-//      */
-//     invariant totalSupply_LE_balance()
-//         totalSupply() <= underlying.balanceOf(currentContract)
-//         {
-//             preserved with(env e) {
-//                 require e.msg.sender != currentContract;
-//             }
-//         }
-//         "#};
-
-//     let natspec = parse_to_exactly_one_element(src).unwrap();
-
-//     dbg!(&natspec, natspec.enumerate_diagnostics());
-// }
