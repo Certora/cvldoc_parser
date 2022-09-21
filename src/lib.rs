@@ -12,17 +12,19 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NatSpec {
-    FreeForm {
-        text: String,
-        range: Range,
-    },
-
+pub enum DocData {
+    FreeForm(String),
     Documentation {
         tags: Vec<DocumentationTag>,
         associated: Option<AssociatedElement>,
-        range: Range,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CvlDoc {
+    pub raw: String,
+    pub range: Range,
+    pub data: DocData,
 }
 
 pub type Ty = String;
@@ -71,36 +73,40 @@ pub enum AssociatedElement {
     },
 }
 
-impl NatSpec {
+impl CvlDoc {
+    pub fn from_rope(rope: Rope) -> Vec<CvlDoc> {
+        let converter = RangeConverter::new(rope.clone());
+        let builders = {
+            let src = rope.to_string();
+            let (parse, _) = parser().parse_recovery(src.as_str());
+            parse.unwrap_or_default()
+        };
+
+        builders
+            .into_iter()
+            .filter_map(|builder| builder.build(converter.clone(), rope.clone()).ok())
+            .collect()
+    }
+}
+
+impl DocData {
     pub fn tags(&self) -> Option<&[DocumentationTag]> {
         match self {
-            NatSpec::Documentation { tags, .. } => Some(tags),
+            DocData::Documentation { tags, .. } => Some(tags),
             _ => None,
         }
     }
 
     pub fn associated_element(&self) -> Option<&AssociatedElement> {
         match self {
-            NatSpec::Documentation { associated, .. } => associated.as_ref(),
+            DocData::Documentation { associated, .. } => associated.as_ref(),
             _ => None,
         }
     }
 
-    pub fn from_rope(rope: Rope) -> Vec<NatSpec> {
-        let src = rope.to_string();
-        let converter = RangeConverter::new(rope);
-        let (builders, _) = parser().parse_recovery(src.as_str());
-
-        builders
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|(builder, _)| builder.build_with_converter(converter.clone()).ok())
-            .collect()
-    }
-
     pub fn auto_generated_title(&self) -> Result<String, Report> {
         match self {
-            NatSpec::Documentation { associated, .. } => {
+            DocData::Documentation { associated, .. } => {
                 let associated = associated
                     .as_ref()
                     .ok_or_else(|| eyre!("documentation has no associated syntactic element"))?;
@@ -128,7 +134,7 @@ impl NatSpec {
     }
 
     pub fn is_documentation(&self) -> bool {
-        matches!(self, NatSpec::Documentation { .. })
+        matches!(self, DocData::Documentation { .. })
     }
 }
 

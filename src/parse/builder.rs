@@ -1,17 +1,18 @@
 use crate::util::span_to_range::{RangeConverter, Span, Spanned};
-use crate::{AssociatedElement, DocumentationTag, NatSpec, Tag};
-use color_eyre::eyre::bail;
+use crate::{AssociatedElement, CvlDoc, DocData, DocumentationTag, Tag};
+use color_eyre::eyre::{bail, ensure, eyre};
 use color_eyre::Report;
+use ropey::Rope;
 
 #[derive(Debug, Clone)]
-pub enum NatSpecBuilder {
+pub enum CvlDocBuilder {
     FreeFormComment {
         text: String,
         span: Span,
     },
     Documentation {
         spanned_body: Vec<Spanned<String>>,
-        element_under_doc: Option<AssociatedElement>,
+        associated: Option<AssociatedElement>,
         span: Span,
     },
     CommentedOutBlock,
@@ -19,40 +20,42 @@ pub enum NatSpecBuilder {
     ParseError,
 }
 
-impl NatSpecBuilder {
-    pub fn build_with_converter(self, converter: RangeConverter) -> Result<NatSpec, Report> {
+impl CvlDocBuilder {
+    fn raw_data(src: Rope, span: Span) -> Result<String, Report> {
+        src.get_slice(span)
+            .map(String::from)
+            .ok_or_else(|| eyre!("span is outside of file bounds"))
+    }
+
+    pub fn build(self, converter: RangeConverter, src: Rope) -> Result<CvlDoc, Report> {
         match self {
-            NatSpecBuilder::FreeFormComment { text, span } => {
-                let free_form = NatSpec::FreeForm {
-                    text,
+            CvlDocBuilder::FreeFormComment { text, span } => {
+                let cvl_doc = CvlDoc {
+                    raw: CvlDocBuilder::raw_data(src, span.clone())?,
                     range: converter.to_range(span),
+                    data: DocData::FreeForm(text),
                 };
-                Ok(free_form)
+                Ok(cvl_doc)
             }
-            NatSpecBuilder::Documentation {
+            CvlDocBuilder::Documentation {
                 spanned_body,
-                element_under_doc,
+                associated,
                 span,
             } => {
-                if spanned_body.is_empty() {
-                    bail!("documentation has no body");
-                }
-                let tags = NatSpecBuilder::process_doc_body(&spanned_body, converter.clone());
+                ensure!(!spanned_body.is_empty(), "documentation has no body");
+                let tags = CvlDocBuilder::process_doc_body(&spanned_body, converter.clone());
 
-                let associated = element_under_doc.map(AssociatedElement::from);
-
-                let range = converter.to_range(span);
-
-                Ok(NatSpec::Documentation {
-                    tags,
-                    associated,
-                    range,
-                })
+                let cvl_doc = CvlDoc {
+                    raw: CvlDocBuilder::raw_data(src, span.clone())?,
+                    range: converter.to_range(span),
+                    data: DocData::Documentation { tags, associated },
+                };
+                Ok(cvl_doc)
             }
-            NatSpecBuilder::CommentedOutBlock | NatSpecBuilder::CommentedOutLine => {
+            CvlDocBuilder::CommentedOutBlock | CvlDocBuilder::CommentedOutLine => {
                 bail!("currently commented out code is not parsed")
             }
-            NatSpecBuilder::ParseError => bail!("parse errors can not be converted"),
+            CvlDocBuilder::ParseError => bail!("parse errors can not be converted"),
         }
     }
 

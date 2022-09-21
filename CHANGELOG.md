@@ -1,4 +1,11 @@
 # Changelog
+## [0.4.0] - 2022-09-21
+### Changed
+- Changed all references from "NatSpec" to the new name, "CVLDoc"
+- Internal restructure of documentation struct to refacator redundant fields
+### Added
+- `raw` field is now captured, containing the entire text from beginning of capture
+
 ## [0.3.2] - 2022-09-15
 ### Changed
 - Updated dependencies

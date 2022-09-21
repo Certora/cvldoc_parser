@@ -1,21 +1,27 @@
 pub mod conversions;
 
-use natspec_parser::{Param, Ty};
+use derivative::Derivative;
+use cvldoc_parser::{Param, Ty};
 use pyo3::prelude::*;
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+#[pyclass(module = "cvldoc_parser")]
 pub struct Documentation {
+    #[pyo3(get)]
+    #[derivative(Debug="ignore")]
+    pub raw: String,
+    #[pyo3(get)]
+    #[derivative(Debug="ignore")]
+    pub range: Range,
     #[pyo3(get)]
     pub tags: Vec<DocumentationTag>,
     #[pyo3(get)]
     pub associated: Option<AssociatedElement>,
-    #[pyo3(get)]
-    pub range: Range,
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[pyclass(module = "cvldoc_parser")]
 pub struct Range {
     #[pyo3(get)]
     pub start: Position,
@@ -31,7 +37,7 @@ impl Range {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[pyclass(module = "cvldoc_parser")]
 pub struct Position {
     #[pyo3(get)]
     pub line: u32,
@@ -46,9 +52,11 @@ impl Position {
     }
 }
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+#[pyclass(module = "cvldoc_parser")]
 pub struct Diagnostic {
+    #[derivative(Debug="ignore")]
     #[pyo3(get)]
     pub range: Range,
     #[pyo3(get)]
@@ -65,19 +73,24 @@ impl Diagnostic {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[pyclass(module = "cvldoc_parser")]
 pub enum Severity {
     Warning,
     Error,
 }
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+#[pyclass(module = "cvldoc_parser")]
 pub struct FreeForm {
+    #[derivative(Debug="ignore")]
     #[pyo3(get)]
-    pub text: String,
+    pub raw: String,
+    #[derivative(Debug="ignore")]
     #[pyo3(get)]
     pub range: Range,
+    #[pyo3(get)]
+    pub text: String,
 }
 
 #[pymethods]
@@ -87,7 +100,7 @@ impl Documentation {
     }
 
     fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: natspec_parser::NatSpec = self.clone().into();
+        let c: cvldoc_parser::CvlDoc = self.clone().into();
         c.enumerate_diagnostics()
             .into_iter()
             .map(Into::into)
@@ -102,7 +115,7 @@ impl FreeForm {
     }
 
     fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: natspec_parser::NatSpec = self.clone().into();
+        let c: cvldoc_parser::CvlDoc = self.clone().into();
         c.enumerate_diagnostics()
             .into_iter()
             .map(Into::into)
@@ -111,8 +124,8 @@ impl FreeForm {
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
-pub struct AssociatedElement(natspec_parser::AssociatedElement);
+#[pyclass(module = "cvldoc_parser")]
+pub struct AssociatedElement(cvldoc_parser::AssociatedElement);
 
 #[pymethods]
 impl AssociatedElement {
@@ -171,13 +184,15 @@ impl AssociatedElement {
     }
 }
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "natspec_parser")]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+#[pyclass(module = "cvldoc_parser")]
 pub struct DocumentationTag {
     #[pyo3(get)]
     pub kind: String,
     #[pyo3(get)]
     pub description: String,
+    #[derivative(Debug="ignore")]
     #[pyo3(get)]
     pub range: Option<Range>,
 }

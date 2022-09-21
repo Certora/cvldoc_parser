@@ -1,4 +1,4 @@
-use crate::{AssociatedElement, NatSpec, Tag};
+use crate::{AssociatedElement, CvlDoc, Tag, DocData};
 use lsp_types::{Diagnostic, DiagnosticSeverity, Range};
 
 impl AssociatedElement {
@@ -34,22 +34,17 @@ impl AssociatedElement {
     }
 }
 
-impl NatSpec {
+impl CvlDoc {
     pub fn enumerate_diagnostics(&self) -> Vec<Diagnostic> {
         let mut warnings = Vec::new();
 
-        if let NatSpec::Documentation {
-            tags,
-            associated,
-            range: natspec_range,
-        } = self
-        {
+        if let DocData::Documentation { tags, associated } = &self.data {
             const WARNING: DiagnosticSeverity = DiagnosticSeverity::WARNING;
             const ERROR: DiagnosticSeverity = DiagnosticSeverity::ERROR;
 
-            let mut add = |message: String, range: Option<Range>, severity: DiagnosticSeverity| {
+            let mut add = |message: String, diag_range: Option<Range>, severity: DiagnosticSeverity| {
                 let diag = Diagnostic {
-                    range: range.unwrap_or(*natspec_range),
+                    range: diag_range.unwrap_or(self.range),
                     severity: Some(severity),
                     message,
                     ..Default::default()

@@ -3,7 +3,7 @@ requires = ["maturin>=0.13,<0.14"]
 build-backend = "maturin"
 
 [project]
-name = "natspec_parser"
+name = "cvldoc_parser"
 version = "0.3.3"
 requires-python = ">=3.7"
 classifiers = [

@@ -3,13 +3,12 @@ pub mod builder;
 mod helpers;
 
 use self::associated_element::associated_element;
-use crate::util::span_to_range::Spanned;
-use builder::NatSpecBuilder;
+use builder::CvlDocBuilder;
 use chumsky::prelude::*;
 use helpers::*;
 use itertools::Itertools;
 
-fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     let slashes = just('/').repeated().at_least(4);
     let thick_slashed_padding = slashes.then(newline_or_end());
 
@@ -74,25 +73,25 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<c
         starred_thick_free_form,
         starred_single_line_free_form,
     ])
-    .map_with_span(|text, span| NatSpecBuilder::FreeFormComment { text, span })
+    .map_with_span(|text, span| CvlDocBuilder::FreeFormComment { text, span })
     .boxed()
 }
 
-fn commented_out_block<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+fn commented_out_block<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     multi_line_cvl_comment()
-        .to(NatSpecBuilder::CommentedOutBlock)
+        .to(CvlDocBuilder::CommentedOutBlock)
         .boxed()
 }
 
-fn commented_out_line<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+fn commented_out_line<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     just("//")
         .then(none_of('/'))
         .then(take_to_newline_or_end())
-        .to(NatSpecBuilder::CommentedOutLine)
+        .to(CvlDocBuilder::CommentedOutLine)
         .boxed()
 }
 
-fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> {
+fn natspec_doc<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     let spanned_slashed_line = just("///")
         .ignore_then(none_of('/').rewind())
         .ignore_then(horizontal_ws())
@@ -115,22 +114,21 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, NatSpecBuilder, Simple<char>> 
 
     doc.then(associated_element().or_not())
         .map(
-            |((spanned_body, span), element_under_doc)| NatSpecBuilder::Documentation {
+            |((spanned_body, span), element_under_doc)| CvlDocBuilder::Documentation {
                 span,
                 spanned_body,
-                element_under_doc,
+                associated: element_under_doc,
             },
         )
         .boxed()
 }
 
-pub(super) fn parser() -> impl Parser<char, Vec<Spanned<NatSpecBuilder>>, Error = Simple<char>> {
+pub(super) fn parser() -> impl Parser<char, Vec<CvlDocBuilder>, Error = Simple<char>> {
     let valid_natspec = choice([free_form_comment(), natspec_doc()]);
     let natspec = choice((commented_out_block(), commented_out_line(), valid_natspec));
 
     natspec
-        .recover_with(skip_until(['\n', ' '], |_| NatSpecBuilder::ParseError).consume_end())
-        .map_with_span(|builder, span| (builder, span))
+        .recover_with(skip_until(['\n', ' '], |_| CvlDocBuilder::ParseError).consume_end())
         .repeated()
         .boxed()
 }

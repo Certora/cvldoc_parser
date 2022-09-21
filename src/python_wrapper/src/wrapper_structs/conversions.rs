@@ -6,9 +6,9 @@ use lsp_types::{
     Diagnostic as DiagnosticR, DiagnosticSeverity as DiagnosticSeverityR, Position as PositionR,
     Range as RangeR,
 };
-use natspec_parser::{
-    AssociatedElement as AssociatedElementR, DocumentationTag as DocumentationTagR,
-    NatSpec as NatSpecR,
+use cvldoc_parser::{
+    AssociatedElement as AssociatedElementR, CvlDoc as CvlDocR, DocData as DocDataR,
+    DocumentationTag as DocumentationTagR,
 };
 use pyo3::{IntoPy, Py, PyAny, Python};
 
@@ -46,12 +46,14 @@ impl From<DocumentationTag> for DocumentationTagR {
 
 impl Documentation {
     pub fn from_rust_repr_components(
+        raw: String,
         tags: Vec<DocumentationTagR>,
         associated: Option<AssociatedElementR>,
         range: RangeR,
     ) -> Documentation {
         let tags_wrapper = tags.into_iter().map(Into::into).collect();
         Documentation {
+            raw,
             tags: tags_wrapper,
             associated: associated.map(AssociatedElement),
             range: range.into(),
@@ -59,42 +61,45 @@ impl Documentation {
     }
 }
 
-impl From<Documentation> for NatSpecR {
+impl From<Documentation> for CvlDocR {
     fn from(
         Documentation {
+            raw,
             tags,
             associated,
             range,
         }: Documentation,
     ) -> Self {
-        NatSpecR::Documentation {
-            tags: tags.into_iter().map(Into::into).collect(),
-            associated: associated.map(|wrapper| wrapper.0),
+        CvlDocR {
+            raw,
             range: range.into(),
+            data: DocDataR::Documentation {
+                tags: tags.into_iter().map(Into::into).collect(),
+                associated: associated.map(|wrapper| wrapper.0),
+            },
         }
     }
 }
 
-impl From<FreeForm> for NatSpecR {
-    fn from(FreeForm { text, range }: FreeForm) -> Self {
-        NatSpecR::FreeForm {
-            text,
+impl From<FreeForm> for CvlDocR {
+    fn from(FreeForm { raw, range, text }: FreeForm) -> Self {
+        CvlDocR {
+            raw,
             range: range.into(),
+            data: DocDataR::FreeForm(text)
         }
     }
 }
 
-pub fn natspec_to_py_object(natspec: NatSpecR, py: Python<'_>) -> Py<PyAny> {
-    match natspec {
-        NatSpecR::FreeForm { text, range } => {
-            let range = range.into();
-            FreeForm { text, range }.into_py(py)
+pub fn cvldoc_to_py_object(doc: CvlDocR, py: Python<'_>) -> Py<PyAny> {
+    match doc.data {
+        DocDataR::FreeForm(text) => {
+            let range = doc.range.into();
+            FreeForm { raw: doc.raw, range, text }.into_py(py)
         }
-        NatSpecR::Documentation {
-            tags,
-            associated,
-            range,
-        } => Documentation::from_rust_repr_components(tags, associated, range).into_py(py),
+        DocDataR::Documentation { tags, associated } => {
+            Documentation::from_rust_repr_components(doc.raw, tags, associated, doc.range).into_py(py)
+        }
     }
 }
 
