@@ -1,7 +1,7 @@
 pub mod conversions;
 
+use cvldoc_parser_core::{Param, Ty};
 use derivative::Derivative;
-use cvldoc_parser::{Param, Ty};
 use pyo3::prelude::*;
 
 #[derive(Derivative, Clone)]
@@ -9,10 +9,10 @@ use pyo3::prelude::*;
 #[pyclass(module = "cvldoc_parser")]
 pub struct Documentation {
     #[pyo3(get)]
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     pub raw: String,
     #[pyo3(get)]
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     pub range: Range,
     #[pyo3(get)]
     pub tags: Vec<DocumentationTag>,
@@ -56,7 +56,7 @@ impl Position {
 #[derivative(Debug)]
 #[pyclass(module = "cvldoc_parser")]
 pub struct Diagnostic {
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     #[pyo3(get)]
     pub range: Range,
     #[pyo3(get)]
@@ -83,10 +83,10 @@ pub enum Severity {
 #[derivative(Debug)]
 #[pyclass(module = "cvldoc_parser")]
 pub struct FreeForm {
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     #[pyo3(get)]
     pub raw: String,
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     #[pyo3(get)]
     pub range: Range,
     #[pyo3(get)]
@@ -100,7 +100,7 @@ impl Documentation {
     }
 
     fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: cvldoc_parser::CvlDoc = self.clone().into();
+        let c: cvldoc_parser_core::CvlDoc = self.clone().into();
         c.enumerate_diagnostics()
             .into_iter()
             .map(Into::into)
@@ -115,7 +115,7 @@ impl FreeForm {
     }
 
     fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: cvldoc_parser::CvlDoc = self.clone().into();
+        let c: cvldoc_parser_core::CvlDoc = self.clone().into();
         c.enumerate_diagnostics()
             .into_iter()
             .map(Into::into)
@@ -125,7 +125,7 @@ impl FreeForm {
 
 #[derive(Debug, Clone)]
 #[pyclass(module = "cvldoc_parser")]
-pub struct AssociatedElement(cvldoc_parser::AssociatedElement);
+pub struct AssociatedElement(cvldoc_parser_core::AssociatedElement);
 
 #[pymethods]
 impl AssociatedElement {
@@ -192,7 +192,7 @@ pub struct DocumentationTag {
     pub kind: String,
     #[pyo3(get)]
     pub description: String,
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     #[pyo3(get)]
     pub range: Option<Range>,
 }

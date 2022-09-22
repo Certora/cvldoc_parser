@@ -91,7 +91,7 @@ fn commented_out_line<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<c
         .boxed()
 }
 
-fn natspec_doc<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
+fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     let spanned_slashed_line = just("///")
         .ignore_then(none_of('/').rewind())
         .ignore_then(horizontal_ws())
@@ -109,10 +109,11 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
         .ignore_then(take_to_starred_terminator().map_with_span(builder::split_starred_doc_lines))
         .boxed();
 
-    let doc = choice([slashed_documentation, starred_documentation])
+    let documentation = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
-    doc.then(associated_element().or_not())
+    documentation
+        .then(associated_element().or_not())
         .map(
             |((spanned_body, span), element_under_doc)| CvlDocBuilder::Documentation {
                 span,
@@ -124,10 +125,10 @@ fn natspec_doc<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
 }
 
 pub(super) fn parser() -> impl Parser<char, Vec<CvlDocBuilder>, Error = Simple<char>> {
-    let valid_natspec = choice([free_form_comment(), natspec_doc()]);
-    let natspec = choice((commented_out_block(), commented_out_line(), valid_natspec));
+    let valid_cvldoc = choice([free_form_comment(), cvldoc_documentation()]);
+    let cvldoc = choice((commented_out_block(), commented_out_line(), valid_cvldoc));
 
-    natspec
+    cvldoc
         .recover_with(skip_until(['\n', ' '], |_| CvlDocBuilder::ParseError).consume_end())
         .repeated()
         .boxed()
