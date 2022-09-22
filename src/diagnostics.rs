@@ -1,4 +1,4 @@
-use crate::{AssociatedElement, CvlDoc, Tag, DocData};
+use crate::{AssociatedElement, CvlDoc, DocData, Tag};
 use lsp_types::{Diagnostic, DiagnosticSeverity, Range};
 
 impl AssociatedElement {
@@ -42,15 +42,16 @@ impl CvlDoc {
             const WARNING: DiagnosticSeverity = DiagnosticSeverity::WARNING;
             const ERROR: DiagnosticSeverity = DiagnosticSeverity::ERROR;
 
-            let mut add = |message: String, diag_range: Option<Range>, severity: DiagnosticSeverity| {
-                let diag = Diagnostic {
-                    range: diag_range.unwrap_or(self.range),
-                    severity: Some(severity),
-                    message,
-                    ..Default::default()
+            let mut add =
+                |message: String, diag_range: Option<Range>, severity: DiagnosticSeverity| {
+                    let diag = Diagnostic {
+                        range: diag_range.unwrap_or(self.range),
+                        severity: Some(severity),
+                        message,
+                        ..Default::default()
+                    };
+                    warnings.push(diag);
                 };
-                warnings.push(diag);
-            };
 
             if let Some(associated) = associated {
                 if tags.iter().all(|tag| tag.kind != Tag::Notice) {

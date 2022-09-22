@@ -112,7 +112,8 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
     let documentation = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
-    documentation.then(associated_element().or_not())
+    documentation
+        .then(associated_element().or_not())
         .map(
             |((spanned_body, span), element_under_doc)| CvlDocBuilder::Documentation {
                 span,

@@ -2,13 +2,13 @@ use super::{
     AssociatedElement, Diagnostic, Documentation, DocumentationTag, FreeForm, Position, Range,
     Severity,
 };
+use cvldoc_parser_core::{
+    AssociatedElement as AssociatedElementR, CvlDoc as CvlDocR, DocData as DocDataR,
+    DocumentationTag as DocumentationTagR,
+};
 use lsp_types::{
     Diagnostic as DiagnosticR, DiagnosticSeverity as DiagnosticSeverityR, Position as PositionR,
     Range as RangeR,
-};
-use cvldoc_parser::{
-    AssociatedElement as AssociatedElementR, CvlDoc as CvlDocR, DocData as DocDataR,
-    DocumentationTag as DocumentationTagR,
 };
 use pyo3::{IntoPy, Py, PyAny, Python};
 
@@ -86,7 +86,7 @@ impl From<FreeForm> for CvlDocR {
         CvlDocR {
             raw,
             range: range.into(),
-            data: DocDataR::FreeForm(text)
+            data: DocDataR::FreeForm(text),
         }
     }
 }
@@ -95,10 +95,16 @@ pub fn cvldoc_to_py_object(doc: CvlDocR, py: Python<'_>) -> Py<PyAny> {
     match doc.data {
         DocDataR::FreeForm(text) => {
             let range = doc.range.into();
-            FreeForm { raw: doc.raw, range, text }.into_py(py)
+            FreeForm {
+                raw: doc.raw,
+                range,
+                text,
+            }
+            .into_py(py)
         }
         DocDataR::Documentation { tags, associated } => {
-            Documentation::from_rust_repr_components(doc.raw, tags, associated, doc.range).into_py(py)
+            Documentation::from_rust_repr_components(doc.raw, tags, associated, doc.range)
+                .into_py(py)
         }
     }
 }

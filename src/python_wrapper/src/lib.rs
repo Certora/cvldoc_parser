@@ -1,8 +1,8 @@
 mod wrapper_structs;
 
-use ::cvldoc_parser::CvlDoc;
 use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
+use cvldoc_parser_core::CvlDoc;
 use itertools::Itertools;
 use pyo3::{prelude::*, types::PyList};
 use ropey::Rope;
@@ -26,7 +26,7 @@ fn cvldocs_from_path(path: &str) -> Result<Vec<CvlDoc>> {
 }
 
 /// takes a list of file paths as strings, returns a list of parsed cvldocs for each path,
-/// if any natspecs were parsed for the path, otherwise returns an empty list for that path.
+/// if any cvldocs were parsed for the path, otherwise returns an empty list for that path.
 /// currently panics if a file fails to open, or fails to read.
 #[pyfunction]
 fn parse(paths: Vec<&str>) -> Vec<Py<PyAny>> {
@@ -39,10 +39,10 @@ fn parse(paths: Vec<&str>) -> Vec<Py<PyAny>> {
     Python::with_gil(|py| {
         cvldocs_per_file
             .into_iter()
-            .map(|file_natspecs| {
-                let elements = file_natspecs
+            .map(|file_cvldocs| {
+                let elements = file_cvldocs
                     .into_iter()
-                    .map(|natspec| cvldoc_to_py_object(natspec, py));
+                    .map(|cvldoc| cvldoc_to_py_object(cvldoc, py));
 
                 PyList::new(py, elements).into_py(py)
             })
