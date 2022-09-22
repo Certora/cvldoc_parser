@@ -20,9 +20,9 @@ fn cvldocs_from_path(path: &str) -> Result<Vec<CvlDoc>> {
         Rope::from_str(&data)
     };
 
-    let natspecs = CvlDoc::from_rope(rope);
+    let cvldocs = CvlDoc::from_rope(rope);
 
-    Ok(natspecs)
+    Ok(cvldocs)
 }
 
 /// takes a list of file paths as strings, returns a list of parsed cvldocs for each path,

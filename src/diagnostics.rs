@@ -80,7 +80,7 @@ impl CvlDoc {
                     }
                 }
             } else {
-                let error_desc = "no associated element for NatSpec documentation block".into();
+                let error_desc = "no associated element for CVLDoc documentation block".into();
                 add(error_desc, None, ERROR);
             }
 
