@@ -3,6 +3,20 @@ orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
+  local-tests:
+    docker:
+      - image: cimg/rust:1.64.0
+    steps:
+      - checkout
+      - run:
+          name: Check code formatting
+          command: |
+            cd src/python_wrapper
+            cargo fmt --all --check
+      - run:  
+          name: Run cargo test
+          command: cargo test
+    
   build-macos-wheels:
     macos:
       xcode: 13.4.1
@@ -100,11 +114,21 @@ jobs:
 workflows:
   build-and-integration-test:
     jobs:
-      - build-linux-wheels
-      - build-macos-wheels
-      - build-windows-wheels
+      - local-tests
+      - build-linux-wheels:
+          requires:
+            - local-tests
+      - build-macos-wheels:
+          requires:
+              - local-tests
+      - build-windows-wheels:
+          requires:
+              - local-tests
       - publish-to-testpypi:
           requires:
             - build-linux-wheels
             - build-macos-wheels
             - build-windows-wheels
+          filters:
+            branches:
+              only: master
