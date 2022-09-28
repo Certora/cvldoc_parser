@@ -200,6 +200,18 @@ impl Tag {
             _ => None,
         }
     }
+
+    pub(crate) fn len(&self) -> usize {
+        let len_without_ampersat = match self {
+            Tag::Dev => 3,
+            Tag::Title | Tag::Param => 5,
+            Tag::Notice | Tag::Return => 6,
+            Tag::Formula => 7,
+            Tag::Unexpected(s) => s.len(),
+        };
+
+        len_without_ampersat + 1
+    }
 }
 
 impl From<&str> for Tag {
@@ -215,6 +227,24 @@ impl From<&str> for Tag {
             "return" => Tag::Return,
             "formula" => Tag::Formula,
             _ => Tag::Unexpected(s.to_string()),
+        }
+    }
+}
+
+impl From<String> for Tag {
+    fn from(mut s: String) -> Self {
+        if s.starts_with('@') {
+            s.remove(0);
+        }
+
+        match s.as_str() {
+            "title" => Tag::Title,
+            "notice" => Tag::Notice,
+            "dev" => Tag::Dev,
+            "param" => Tag::Param,
+            "return" => Tag::Return,
+            "formula" => Tag::Formula,
+            _ => Tag::Unexpected(s),
         }
     }
 }

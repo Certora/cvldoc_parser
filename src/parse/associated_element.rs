@@ -175,10 +175,10 @@ fn invariant_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<c
         "using",
     ]
     .map(just);
-    let new_natspec_start = just("///").or(just("/**").then_ignore(none_of('/')));
+    let new_cvldoc_start = just("///").or(just("/**").then_ignore(none_of('/')));
     let end_at_stopping_word = end()
         .or(choice(stopping).ignored())
-        .or(new_natspec_start.ignored())
+        .or(new_cvldoc_start.ignored())
         .to((None, None))
         .rewind();
 

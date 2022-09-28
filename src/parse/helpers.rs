@@ -1,10 +1,11 @@
+use super::terminated_line::{TerminatedLine, Terminator};
 use chumsky::combinator::Repeated;
 use chumsky::prelude::*;
 use chumsky::primitive::OneOf;
 use std::hash::Hash;
 
 pub(super) fn newline<'src>() -> impl Parser<char, &'src str, Error = Simple<char>> + Clone {
-    const NEWLINE: &[&str; 2] = &["\r\n", "\n"];
+    static NEWLINE: &[&str; 2] = &["\r\n", "\n"];
     let newline_parsers = NEWLINE.map(just);
     choice(newline_parsers)
 }
@@ -14,8 +15,20 @@ pub(super) fn newline_or_end<'src>() -> impl Parser<char, &'src str, Error = Sim
     newline().or(end).boxed()
 }
 
+pub(super) fn line_with_terminator(
+) -> impl Parser<char, TerminatedLine, Error = Simple<char>> + Clone {
+    let terminator = choice([
+        just("\r\n").to(Terminator::CRLF).boxed(),
+        just('\n').to(Terminator::LF).boxed(),
+        just('\r').to(Terminator::CR).boxed(),
+        end().to(Terminator::EOF).boxed(),
+    ]);
+
+    take_until(terminator).map(|(content, terminator)| TerminatedLine::new(content, terminator))
+}
+
 pub(super) fn horizontal_ws<'src>() -> Repeated<OneOf<char, &'src [char; 2], Simple<char>>> {
-    const HORIZONTAL_WHITESPACE: &[char; 2] = &[' ', '\t'];
+    static HORIZONTAL_WHITESPACE: &[char; 2] = &[' ', '\t'];
     one_of(HORIZONTAL_WHITESPACE).repeated()
 }
 
@@ -32,7 +45,12 @@ where
 }
 
 pub(super) fn take_to_newline_or_end<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
-    take_until_without_terminator(newline_or_end()).boxed()
+    take_until(newline_or_end())
+        .map(|(mut content, line_end)| {
+            content.extend(line_end.chars());
+            content
+        })
+        .boxed()
 }
 
 pub(super) fn take_to_starred_terminator<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>>
@@ -46,7 +64,7 @@ pub(super) fn single_line_cvl_comment() -> impl Parser<char, (), Error = Simple<
 
 pub(super) fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
     //this is a somewhat tricky parse.
-    //we want to avoid parsing "/**" as a cvl comment, to give priority to starred natspec comments.
+    //we want to avoid parsing "/**" as a cvl comment, to give priority to starred cvldoc comments.
     //however, this creates an edge case.
     let edge_case_starter = just("/**/");
     let multi_line_starter = just("/*").then_ignore(none_of('*'));
