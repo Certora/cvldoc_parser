@@ -145,6 +145,7 @@ fn doc_tag_spans_match_source() {
 }
 
 #[test]
+#[ignore = "requirements changed: now if a trimmed line is empty, we keep it"]
 fn doc_description_with_empty_line() {
     let src = indoc! {"
             /**
@@ -239,7 +240,7 @@ fn comments_in_associated_element() {
 fn commented_out_blocks_are_ignored() {
     let src = indoc! {r#"
             /*
-            /// This should not be parsed as a NatSpec doc,
+            /// This should not be parsed as CVLDoc documentation,
             /// since the entire block is commented out.
             rule sanity {
                 method f; env e; calldataarg args;
@@ -251,7 +252,7 @@ fn commented_out_blocks_are_ignored() {
             /*
             /**
              * this one should not be parsed either.
-             * note that this is valid starred natspec
+             * note that this is valid starred cvldoc
              * doc, and as such it ends with the
              * same terminator that ends a regular CVL comment
              * which could cause parsing ambiguities.
@@ -268,7 +269,7 @@ fn commented_out_blocks_are_ignored() {
     let parsed = parse_src(src);
     assert!(
         parsed.is_empty(),
-        "valid NatSpec blocks were parsed from commented out blocks"
+        "valid CVLDoc blocks were parsed from commented out blocks"
     );
 }
 
@@ -435,9 +436,37 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
 
     let parsed = parse_to_exactly_one_element(src).unwrap();
 
-    if let DocData::FreeForm(text) = parsed.data {
-        assert_eq!(text, "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties");
-    } else {
-        panic!("should have been parsed as documentation")
+    let expected = "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties";
+    match parsed.data {
+        DocData::FreeForm(text) => assert_eq!(text, expected),
+        _ => panic!("should have been parsed as documentation"),
+    }
+}
+
+#[test]
+fn crlf() {
+    let src_with_crlf_encoding = indoc! {r#"
+    /***
+     * # testing the natspec parser.
+     * This is made by Gabriel  it contains all
+     * known tags
+     ***/
+    methods {
+        get5() returns uint envfree
+        init_state() envfree
+        setX(uint256) envfree
+        getX() returns uint envfree
+        getXCanRevert(uint256) returns uint envfree
+        twoReturns(uint256) returns (uint256,uint256) envfree
+        threeReturns(uint256,uint256) returns (uint256,uint256,uint256)
+    }
+        "#}
+    .replace('\n', "\r\n");
+
+    let parsed = parse_to_exactly_one_element(&src_with_crlf_encoding).unwrap();
+
+    match parsed.data {
+        DocData::FreeForm(text) => assert_eq!(text, "# testing the natspec parser.\r\nThis is made by Gabriel  it contains all\r\nknown tags"),
+        _ => panic!("should have been parsed as documentation"),
     }
 }

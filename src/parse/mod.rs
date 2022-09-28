@@ -1,12 +1,15 @@
 mod associated_element;
 pub mod builder;
 mod helpers;
+mod terminated_line;
 
 use self::associated_element::associated_element;
+use crate::parse::terminated_line::JoinToString;
 use builder::CvlDocBuilder;
-use chumsky::prelude::*;
+use chumsky::{prelude::*, text::whitespace};
 use helpers::*;
-use itertools::Itertools;
+use std::iter;
+use terminated_line::TerminatedLine;
 
 fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<char>> {
     let slashes = just('/').repeated().at_least(4);
@@ -14,22 +17,19 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
 
     let slashed_free_form_line = slashes
         .ignore_then(horizontal_ws())
-        .ignore_then(take_to_newline_or_end())
-        .collect()
-        .map(|line: String| {
-            let padding = &[' ', '\t', '/'];
-            line.trim_end_matches(padding).to_string()
-        })
+        .ignore_then(line_with_terminator())
+        .map(|line| line.trim_end(&[' ', '\t', '/']))
         .boxed();
 
     let slashed_free_form = slashed_free_form_line
         .clone()
         .repeated()
         .at_least(1)
-        .map(|body| body.into_iter().join("\n"))
+        .map(JoinToString::join_to_string)
         .boxed();
     let slashed_thick_free_form = slashed_free_form_line
         .padded_by(thick_slashed_padding)
+        .map(|line| iter::once(line).join_to_string())
         .boxed();
 
     let stars = just('*').repeated().at_least(3);
@@ -53,13 +53,12 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
     let starred_multi_line_first_line = just("/***").then(newline()).boxed();
     let starred_body = take_to_starred_terminator()
         .then_ignore(newline_or_end())
-        .collect()
-        .map(|body: String| {
-            let padding: &[_] = &[' ', '\t', '*', '\n'];
-            body.trim_end()
-                .lines()
-                .map(|line| line.trim_matches(padding))
-                .join("\n")
+        .map(|body| {
+            static PADDING: &[char] = &[' ', '\t', '*'];
+            body.split_inclusive(|&c| c == '\n')
+                .map(TerminatedLine::from_char_slice)
+                .map(|term_line| term_line.trim_start(PADDING).trim_end(PADDING))
+                .join_to_string()
         })
         .boxed();
     let starred_free_form = starred_multi_line_first_line
@@ -95,17 +94,17 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
     let spanned_slashed_line = just("///")
         .ignore_then(none_of('/').rewind())
         .ignore_then(horizontal_ws())
-        .ignore_then(
-            take_to_newline_or_end()
-                .collect()
-                .map_with_span(|trimmed_line, span| (trimmed_line, span)),
-        )
+        .ignore_then(line_with_terminator().map_with_span(|line, span| {
+            static PADDING: &[char] = &[' ', '\t'];
+            (line.trim_end(PADDING), span)
+        }))
         .boxed();
 
     let slashed_documentation = spanned_slashed_line.repeated().at_least(1).boxed();
 
     let starred_documentation = just("/**")
         .then(none_of("*/").rewind())
+        .then_ignore(whitespace())
         .ignore_then(take_to_starred_terminator().map_with_span(builder::split_starred_doc_lines))
         .boxed();
 
@@ -115,10 +114,10 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
     documentation
         .then(associated_element().or_not())
         .map(
-            |((spanned_body, span), element_under_doc)| CvlDocBuilder::Documentation {
+            |((spanned_body, span), associated)| CvlDocBuilder::Documentation {
                 span,
                 spanned_body,
-                associated: element_under_doc,
+                associated,
             },
         )
         .boxed()

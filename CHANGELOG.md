@@ -1,4 +1,8 @@
 # Changelog
+## [0.4.1] - 2022-09-28
+### Fixed
+- No longer ignore line terminator kind, so CRLF is now parsed correctly.
+
 ## [0.4.0] - 2022-09-21
 ### Changed
 - Changed all references from "NatSpec" to the new name, "CVLDoc"
