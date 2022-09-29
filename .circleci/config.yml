@@ -9,6 +9,32 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install ripgrep
+          command: sudo apt-get install ripgrep
+      - run:
+          name: Check version matches of Cargo.toml, pyproject.toml and CHANGELOG
+          command: |
+            function fail {
+                echo "$1"
+                status=1
+            }
+
+            CORE_DIR="${PWD}"
+            PYTHON_MODULE_DIR="${CORE_DIR}/src/python_wrapper"
+
+            CORE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${CORE_DIR}/Cargo.toml)
+            CORE_LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
+
+            MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml) 
+            PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
+            MODULE_LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${PYTHON_MODULE_DIR}/CHANGELOG.md)
+
+            [[ $CORE_CARGOTOML_VER == $CORE_LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
+            [[ $MODULE_CARGOTOML_VER == $MODULE_LATEST_CHANGELOG_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${MODULE_LATEST_CHANGELOG_VER})"
+            [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
+
+            exit $status
+      - run:
           name: Check code formatting
           command: |
             cd src/python_wrapper
