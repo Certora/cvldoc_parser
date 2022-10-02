@@ -1,4 +1,8 @@
 # Changelog
+## [0.4.2] - 2022-10-02
+### Fixed
+- Fix issue with recognition of `rule` blocks.
+
 ## [0.4.1] - 2022-09-28
 ### Fixed
 - No longer ignore line terminator kind, so CRLF is now parsed correctly.

@@ -470,3 +470,32 @@ fn crlf() {
         _ => panic!("should have been parsed as documentation"),
     }
 }
+
+#[test]
+fn methods_with_whitespace_between_name_and_params() {
+    let src = indoc! {r#"
+    /// When a contract is in a paused state, transfer methods must revert.
+    rule transferMethodsRevertWhenPaused (method f)
+    filtered {
+        f -> f.selector == safeTransferFrom(address,address,uint256,uint256,bytes).selector
+          || f.selector == safeBatchTransferFrom(address,address,uint256[],uint256[],bytes).selector
+    }
+    {
+        require paused();
+    
+        env e; calldataarg args;
+        f@withrevert(e, args);
+    
+        assert lastReverted, 
+            "Transfer methods must revert in a paused contract";
+    }
+        "#};
+
+    let parsed = parse_to_exactly_one_element(&src).unwrap();
+
+    if let DocData::Documentation { associated, .. } = parsed.data {
+        assert_matches!(associated, Some(AssociatedElement::Rule { .. }));
+    } else {
+        panic!("should have been parsed as documentation");
+    }
+}

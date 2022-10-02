@@ -1,4 +1,8 @@
 # Changelog
+## [0.4.2] - 2022-10-02
+### Fixed
+- Sync with `cvldoc_parser_core` version `0.4.2`.
+
 ## [0.4.1] - 2022-09-28
 ### Fixed
 - No longer ignore line terminator kind, so CRLF is now parsed correctly.

@@ -16,7 +16,7 @@ pub(super) fn balanced_curly_brackets<'src>() -> BoxedParser<'src, char, String,
     let block = recursive(|block| {
         let between = content.or(block).repeated().map(String::from_iter);
 
-        lb.chain(between)
+        lb.then(between)
             .chain(rb)
             .map(|v: Vec<String>| v.into_iter().collect())
     });
@@ -218,6 +218,7 @@ fn rule_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>>
 
     rule_start
         .ignore_then(decl_name())
+        .then_ignore(optional_sep())
         .then(optional_params)
         .then_ignore(optional_sep())
         .then(param_filters().or_not().then_ignore(optional_sep()))
