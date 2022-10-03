@@ -15,21 +15,22 @@ defines:
         root: ./src/python_wrapper/target
         paths:
           - wheels/*
+  
+  upgrade-pip: &upgrade-pip
+    - run:
+        name: Update pip
+        command: pip install --upgrade pip
+  
+  install-maturin: &install-maturin
+    - run: 
+        name: Install maturin
+        command: pip install maturin
     
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
-  triage-macos:
-    macos:
-      xcode: 14.0.0
-    steps:
-      - run:
-          name: Triage
-          command: |
-            which python3
-            python3 --version
   unit-tests:
     docker:
       - image: cimg/rust:1.64.0
@@ -77,12 +78,14 @@ jobs:
       - checkout
       - rust/install
       - run:
-          name: Update pip
-          command: python3 -m pip install --upgrade pip
+          name: alias python and pip
+          command: |
+            alias python="$(which python3)"
+            alias pip="$(which pip3)"
+      - run: *upgrade-pip
       - run:    
           name: Build Project
           command: |
-            pip3 install maturin
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
             maturin build --target=aarch64-apple-darwin --universal2
@@ -95,13 +98,12 @@ jobs:
     steps:
       - checkout
       - rust/install
+      - run: *install-maturin
       - run:
-          name: Install Maturin and Build Wheel
+          name: Build Wheel
           command: |
             cd src/python_wrapper
-            PYBIN_DIR="/opt/python/cp37-cp37m/bin"
-            "${PYBIN_DIR}/pip" install maturin
-            "${PYBIN_DIR}/maturin" build --bindings=pyo3
+            maturin build --bindings=pyo3
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
@@ -110,10 +112,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Pip Dependecies
-          command: |
-            python -m pip install --upgrade pip
-            pip install maturin 
+          <<: *upgrade-pip
+          shell: bash.exe
+      - run:
+          <<: *install-maturin
           shell: bash.exe
       - run:
           name: Install Rust
@@ -128,7 +130,6 @@ jobs:
       - run:
           name: Build Wheel
           command: |
-            export PATH=${HOME}/.cargo/bin:$PATH
             cd src/python_wrapper
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
@@ -203,29 +204,28 @@ jobs:
 workflows:
   unit-test-build-and-integration-test:
     jobs:
-      - triage-macos
-      # - unit-tests
-      # - build-linux-wheel:
-      #     requires:
-      #       - unit-tests
-      # - build-macos-wheel:
-      #     requires:
-      #       - unit-tests
-      # - build-windows-wheel:
-      #     requires:
-      #       - unit-tests
-      # - integration-test-linux:
-      #     requires:
-      #       - build-linux-wheel
-      # - integration-test-macos:
-      #     requires:
-      #       - build-macos-wheel
-      # - integration-test-windows:
-      #     requires:
-      #       - build-windows-wheel
-      # - publish-to-testpypi:
-      #     requires:
-      #       - integration-test-linux
-      #     filters:
-      #       branches:
-      #         only: master
+      - unit-tests
+      - build-linux-wheel:
+          requires:
+            - unit-tests
+      - build-macos-wheel:
+          requires:
+            - unit-tests
+      - build-windows-wheel:
+          requires:
+            - unit-tests
+      - integration-test-linux:
+          requires:
+            - build-linux-wheel
+      - integration-test-macos:
+          requires:
+            - build-macos-wheel
+      - integration-test-windows:
+          requires:
+            - build-windows-wheel
+      - publish-to-testpypi:
+          requires:
+            - integration-test-linux
+          filters:
+            branches:
+              only: master
