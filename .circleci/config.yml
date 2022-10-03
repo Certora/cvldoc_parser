@@ -45,7 +45,7 @@ jobs:
     
   build-macos-wheel:
     macos:
-      xcode: 13.4.1
+      xcode: 14.0.0
     steps:
       - checkout
       - rust/install
@@ -127,7 +127,7 @@ jobs:
       - image: python:3.7
     steps:
       - attach_workspace:
-         at: .
+          at: .
       - run:
           name: Downgrade pip to earliest compatible version, to test manylinux compatibility
           command: pip install pip==19.3
@@ -145,10 +145,10 @@ jobs:
 
   integration-test-macos:
     macos:
-      xcode: 13.4.1
+      xcode: 14.0.0
     steps:
       - attach_workspace:
-         at: .
+          at: .
       - run:
           name: Install wheel
           command: pip install wheels/*macosx*
@@ -161,23 +161,23 @@ jobs:
             parsed = cvldoc_parser.parse([\"definition_test.spec\"])
             assert len(parsed[0]) == 3, \"should parse to 3 elements\""
   
-    integration-test-windows:
-      executor: win/default
-      steps:
-        - attach_workspace:
+  integration-test-windows:
+    executor: win/default
+    steps:
+      - attach_workspace:
           at: .
-        - run:
-            name: Install wheel
-            command: pip install wheels/*win*
-            shell: bash.exe
-        - run:
-            name: Smoke test
-            command: |
-              wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+      - run:
+          name: Install wheel
+          command: pip install wheels/*win*
+          shell: bash.exe
+      - run:
+          name: Smoke test
+          command: |
+            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
-              python3 -c "import cvldoc_parser
-              parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-              assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+            python3 -c "import cvldoc_parser
+            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
             
   publish-to-testpypi:
     docker:
