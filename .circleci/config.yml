@@ -1,25 +1,35 @@
-smoke-test: &smoke-test
-  name: Smoke test
-  command: |
-    wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+defines:
+  smoke-test: &smoke-test
+    name: Smoke test
+    command: |
+      wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
-    python -c "import cvldoc_parser
-    parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-    assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+      python -c "import cvldoc_parser
+      parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+      assert len(parsed[0]) == 3, \"should parse to 3 elements\""
 
-steps:
-  - store_artifacts: &store-wheel
-      path: ./src/python_wrapper/target/wheels
-  - persist_to_workspace: &persist-wheel
-      root: ./src/python_wrapper/target
-      paths:
-        - wheels/*
+  store-and-persist:
+    - store_artifacts: &store-wheel
+        path: ./src/python_wrapper/target/wheels
+    - persist_to_workspace: &persist-wheel
+        root: ./src/python_wrapper/target
+        paths:
+          - wheels/*
     
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
+  integration-test-macos:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - run:
+          name: Triage
+          command: |
+            which python3
+            python3 --version
   unit-tests:
     docker:
       - image: cimg/rust:1.64.0
@@ -107,8 +117,7 @@ jobs:
           shell: bash.exe
       - run:
           name: Install Rust
-          command: |
-            curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
+          command: curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
           shell: bash.exe
       - run:
           name: Fix Cargo Config
@@ -194,28 +203,29 @@ jobs:
 workflows:
   unit-test-build-and-integration-test:
     jobs:
-      - unit-tests
-      - build-linux-wheel:
-          requires:
-            - unit-tests
-      - build-macos-wheel:
-          requires:
-            - unit-tests
-      - build-windows-wheel:
-          requires:
-            - unit-tests
-      - integration-test-linux:
-          requires:
-            - build-linux-wheel
-      - integration-test-macos:
-          requires:
-            - build-macos-wheel
-      - integration-test-windows:
-          requires:
-            - build-windows-wheel
-      - publish-to-testpypi:
-          requires:
-            - integration-test-linux
-          filters:
-            branches:
-              only: master
+      - triage-macos
+      # - unit-tests
+      # - build-linux-wheel:
+      #     requires:
+      #       - unit-tests
+      # - build-macos-wheel:
+      #     requires:
+      #       - unit-tests
+      # - build-windows-wheel:
+      #     requires:
+      #       - unit-tests
+      # - integration-test-linux:
+      #     requires:
+      #       - build-linux-wheel
+      # - integration-test-macos:
+      #     requires:
+      #       - build-macos-wheel
+      # - integration-test-windows:
+      #     requires:
+      #       - build-windows-wheel
+      # - publish-to-testpypi:
+      #     requires:
+      #       - integration-test-linux
+      #     filters:
+      #       branches:
+      #         only: master
