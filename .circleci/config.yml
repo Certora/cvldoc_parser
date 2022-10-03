@@ -115,13 +115,14 @@ jobs:
           command: curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
           shell: bash.exe
       - run:
-          name: Fix Cargo Config
+          name: Fix Cargo Config and $PATH
           command: |
             echo "[net]" >> ~/.cargo/config
             echo "git-fetch-with-cli = true" >> ~/.cargo/config
+            export PATH=${HOME}/.cargo/bin:$PATH
           shell: bash.exe
       - run:
-          name: Build Wheel
+          name: Build wheel
           command: |
             cd src/python_wrapper
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
