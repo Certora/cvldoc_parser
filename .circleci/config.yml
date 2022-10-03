@@ -132,7 +132,7 @@ jobs:
           name: "Install wheel"
           command: |
             pip install pip==19.3
-            pip install -i https://test.pypi.org/simple/ cvldoc-parser==0.4.0
+            pip install -i https://test.pypi.org/simple/ cvldoc-parser
 
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
             python3 -c "import cvldoc_parser
