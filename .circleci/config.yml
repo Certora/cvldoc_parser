@@ -129,17 +129,56 @@ jobs:
       - attach_workspace:
          at: .
       - run:
-          name: "Install wheel"
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run:
+          name: Smoke test
           command: |
-            pip install --upgrade pip
-            pip install -i https://test.pypi.org/simple/ cvldoc-parser==0.4.0
-
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+
             python3 -c "import cvldoc_parser
             parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-            print(\"TEST PASSED\") if len(parsed[0]) == 3 else print(\"TEST FAILED...\")"
-            
+            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
 
+  integration-test-macos:
+    macos:
+      xcode: 13.4.1
+    steps:
+      - attach_workspace:
+         at: .
+      - run:
+          name: Install wheel
+          command: pip install wheels/*macosx*
+      - run:
+          name: Smoke test
+          command: |
+            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+
+            python3 -c "import cvldoc_parser
+            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+  
+    integration-test-windows:
+      executor: win/default
+      steps:
+        - attach_workspace:
+          at: .
+        - run:
+            name: Install wheel
+            command: pip install wheels/*win*
+            shell: bash.exe
+        - run:
+            name: Smoke test
+            command: |
+              wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+
+              python3 -c "import cvldoc_parser
+              parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+              assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+            
   publish-to-testpypi:
     docker:
       - image: cimg/python:3.10.7
@@ -158,29 +197,28 @@ jobs:
 workflows:
   build-and-integration-test:
     jobs:
-      # - local-tests
-      # - build-linux-wheel:
-      #     requires:
-      #       - local-tests
-      # - build-macos-wheel:
-      #     requires:
-      #         - local-tests
-      # - build-windows-wheel:
-      #     requires:
-      #         - local-tests
-      - integration-test-linux
-      # - integration-test-linux:
-          # requires:
-            # - build-linux-wheel
-      # - integration-test-macos:
-      #     requires:
-      #       - build-macos-wheel
-      # - integration-test-windows:
-      #     requires:
-      #       - build-windows-wheel
-      # - publish-to-testpypi:
-      #     requires:
-      #       - integration-test-linux
-      #     filters:
-      #       branches:
-      #         only: master
+      - local-tests
+      - build-linux-wheel:
+          requires:
+            - local-tests
+      - build-macos-wheel:
+          requires:
+              - local-tests
+      - build-windows-wheel:
+          requires:
+              - local-tests
+      - integration-test-linux:
+          requires:
+            - build-linux-wheel
+      - integration-test-macos:
+          requires:
+            - build-macos-wheel
+      - integration-test-windows:
+          requires:
+            - build-windows-wheel
+      - publish-to-testpypi:
+          requires:
+            - integration-test-linux
+          filters:
+            branches:
+              only: master
