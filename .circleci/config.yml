@@ -124,7 +124,7 @@ jobs:
 
   integration-test-linux:
     docker:
-      - image: ubuntu-2004:2022.07.1
+      - image: python:3.7
     steps:
       - attach_workspace:
          at: .
