@@ -124,7 +124,7 @@ jobs:
 
   integration-test-linux:
     docker:
-      - image: ubuntu-2004:2020.10.1
+      - image: ubuntu-2004:202101-01
     steps:
       - attach_workspace:
          at: .
