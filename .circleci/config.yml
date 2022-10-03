@@ -6,6 +6,15 @@ smoke-test: &smoke-test
     python -c "import cvldoc_parser
     parsed = cvldoc_parser.parse([\"definition_test.spec\"])
     assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+
+steps:
+  - store_artifacts: &store-wheel
+      path: ./src/python_wrapper/target/wheels
+  - persist_to_workspace: &persist-wheel
+      root: ./src/python_wrapper/target
+      paths:
+        - wheels/*
+    
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
@@ -67,12 +76,8 @@ jobs:
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
             maturin build --target=aarch64-apple-darwin --universal2
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
   build-linux-wheel:
     docker:
@@ -87,12 +92,8 @@ jobs:
             PYBIN_DIR="/opt/python/cp37-cp37m/bin"
             "${PYBIN_DIR}/pip" install maturin
             "${PYBIN_DIR}/maturin" build --bindings=pyo3
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels/
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
   build-windows-wheel:
     executor: win/default
@@ -123,12 +124,8 @@ jobs:
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
           shell: bash.exe
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
   integration-test-linux:
     docker:
@@ -151,6 +148,9 @@ jobs:
     steps:
       - attach_workspace:
           at: .
+      - run:
+          name: Install dependencies
+          command: brew install wget
       - run:
           name: Install wheel
           command: python3 -m pip install wheels/*macosx*
