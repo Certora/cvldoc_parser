@@ -139,20 +139,9 @@ jobs:
             # yes | pip uninstall cvldoc_parser
             # pip install --user cvldoc_parser-0.4.1-cp37-abi3-manylinux_2_28_x86_64.whl
 
-            echo '/********************************/
-/*** # Thick centered example */
-/********************************/
-
-/**
-* some stuff
-* @title A house for dogs
-* @param fizz this param does not exist
-*/
-invariant cantWithdrawTooEarly(env e, uint fizz, uint256 streamId)
-    getStreamExists(streamId) && e.block.timestamp <= getStreamStartTime(streamId) =>
-        balanceOf(e, streamId, getStreamRecipient(streamId)) == 0' > natspec_test.spec
+            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
             python -c "import cvldoc_parser
-            parsed = cvldoc_parser.parse('natspec_test')
+            parsed = cvldoc_parser.parse('definition_test.spec')
             print(parsed)"
             
 
