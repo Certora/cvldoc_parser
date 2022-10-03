@@ -2,6 +2,16 @@ version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
+smoke-test: &smoke-test
+  - run:
+      name: Smoke test
+      command: |
+        wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+
+        python -c "import cvldoc_parser
+        parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+        assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+
 jobs:
   unit-tests:
     docker:
@@ -134,14 +144,7 @@ jobs:
       - run:
           name: Install wheel
           command: pip install wheels/*manylinux*
-      - run:
-          name: Smoke test
-          command: |
-            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
-
-            python3 -c "import cvldoc_parser
-            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+      <<: *smoke-test
 
   integration-test-macos:
     macos:
@@ -152,37 +155,24 @@ jobs:
       - run:
           name: Install wheel
           command: python3 -m pip install wheels/*macosx*
-      - run:
-          name: Smoke test
-          command: |
-            brew install wget
-            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
-
-            python3 -c "import cvldoc_parser
-            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+      <<: *smoke-test
   
   integration-test-windows:
     executor: win/default
     steps:
       - attach_workspace:
           at: .
+      - run: Install dependencies
+          command: choco install wget
+          shell: bash.exe
       - run:
           name: Install wheel
           command: |
             pip install --upgrade pip
             pip install wheels/*win*
           shell: bash.exe
-      - run:
-          name: Smoke test
-          command: |
-            choco install wget
-            wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
-
-            python -c "import cvldoc_parser
-            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-            assert len(parsed[0]) == 3, \"should parse to 3 elements\""
-          shell: bash.exe
+      <<: *smoke-test
+        shell: bash.exe
             
   publish-to-testpypi:
     docker:
