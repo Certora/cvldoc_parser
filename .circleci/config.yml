@@ -119,11 +119,11 @@ jobs:
           command: |
             echo "[net]" >> ~/.cargo/config
             echo "git-fetch-with-cli = true" >> ~/.cargo/config
-            export PATH=${HOME}/.cargo/bin:$PATH
           shell: bash.exe
       - run:
           name: Build wheel
           command: |
+            export PATH=${HOME}/.cargo/bin:$PATH
             cd src/python_wrapper
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
