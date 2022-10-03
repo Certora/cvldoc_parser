@@ -89,7 +89,7 @@ jobs:
       - checkout
       - rust/install
       - run:
-          name: Install Maturin and Build Wheel
+          name: Install Maturin and Build wheel
           command: |
             cd src/python_wrapper
             PYBIN_DIR="/opt/python/cp37-cp37m/bin"
@@ -104,11 +104,11 @@ jobs:
       - checkout
       - run:
           name: Upgrade pip
-          command: pip install --user --upgrade pip
+          command: python -m pip install --upgrade pip
           shell: bash.exe
       - run:
           name: Install maturin
-          command: pip install --user maturin
+          command: pip install maturin
           shell: bash.exe
       - run:
           name: Install Rust
