@@ -28,7 +28,7 @@ jobs:
       - run:
           name: Triage1
           command: |
-            cat ~/.bash_profile
+            brew install python
       - run:
           name: Triage2
           command: python --version
