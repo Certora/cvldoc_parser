@@ -198,18 +198,18 @@ jobs:
             done
 
 workflows:
-  build-and-integration-test:
+  unit-test-build-and-integration-test:
     jobs:
-      - local-tests
+      - unit-tests
       - build-linux-wheel:
           requires:
-            - local-tests
+            - unit-tests
       - build-macos-wheel:
           requires:
-              - local-tests
+            - unit-tests
       - build-windows-wheel:
           requires:
-              - local-tests
+            - unit-tests
       - integration-test-linux:
           requires:
             - build-linux-wheel
