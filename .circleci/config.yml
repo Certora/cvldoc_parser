@@ -28,7 +28,8 @@ jobs:
       - run:
           name: Triage1
           command: |
-            printf "\n%s" "alias python=python3" >> ~/.bash_profile
+            printf "\n%s" "alias python='python3'" >> ~/.bash_profile
+            printf "\n%s" "shopt -s expand_aliases" >> ~/.bash_profile
             cat ~/.bash_profile
       - run:
           name: Triage2
