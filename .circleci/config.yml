@@ -8,20 +8,16 @@ defines:
       parsed = cvldoc_parser.parse([\"definition_test.spec\"])
       assert len(parsed[0]) == 3, \"should parse to 3 elements\""
 
-  store-and-persist:
+  repeated-jobs:
     - store_artifacts: &store-wheel
         path: ./src/python_wrapper/target/wheels
     - persist_to_workspace: &persist-wheel
         root: ./src/python_wrapper/target
         paths:
           - wheels/*
-  
-  upgrade-pip: 
     - run: &upgrade-pip
         name: Update pip
         command: pip install --upgrade pip
-  
-  install-maturin: 
     - run: &install-maturin
         name: Install maturin
         command: pip install maturin
