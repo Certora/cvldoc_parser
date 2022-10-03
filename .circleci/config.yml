@@ -143,7 +143,8 @@ jobs:
       - run:
           name: Install wheel
           command: pip install wheels/*manylinux*
-      - run: *smoke-test
+      - run: 
+        <<: *smoke-test
 
   integration-test-macos:
     macos:
@@ -154,7 +155,8 @@ jobs:
       - run:
           name: Install wheel
           command: python3 -m pip install wheels/*macosx*
-      - run: *smoke-test
+      - run: 
+        <<: *smoke-test
   
   integration-test-windows:
     executor: win/default
