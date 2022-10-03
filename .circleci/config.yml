@@ -21,19 +21,6 @@ orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
-  triage-mac:
-    macos:
-      xcode: 14.0.0
-    steps:
-      - run:
-          name: Triage1
-          command: |
-            printf "\n%s" "alias python='python3'" >> ~/.bash_profile
-            printf "\n%s" "shopt -s expand_aliases" >> ~/.bash_profile
-            cat ~/.bash_profile
-      - run:
-          name: Triage2
-          command: python --version
   unit-tests:
     docker:
       - image: cimg/rust:1.64.0
@@ -170,7 +157,7 @@ jobs:
           command: brew install wget
       - run:
           name: Alias python to python3
-          command: echo 'alias python="$(which python3)"' >> ~/.bashrc
+          command: printf "\n%s\n%s" "alias python=python3" "shopt -s expand_aliases" >> ~/.bash_profile
       - run:
           name: Install wheel
           command: python3 -m pip install wheels/*macosx*
@@ -214,29 +201,28 @@ jobs:
 workflows:
   unit-test-build-and-integration-test:
     jobs:
-      - triage-mac
-      # - unit-tests
-      # - build-linux-wheel:
-      #     requires:
-      #       - unit-tests
-      # - build-macos-wheel:
-      #     requires:
-      #       - unit-tests
-      # - build-windows-wheel:
-      #     requires:
-      #       - unit-tests
-      # - integration-test-linux:
-      #     requires:
-      #       - build-linux-wheel
-      # - integration-test-macos:
-      #     requires:
-      #       - build-macos-wheel
-      # - integration-test-windows:
-      #     requires:
-      #       - build-windows-wheel
-      # - publish-to-testpypi:
-      #     requires:
-      #       - integration-test-linux
-      #     filters:
-      #       branches:
-      #         only: master
+      - unit-tests
+      - build-linux-wheel:
+          requires:
+            - unit-tests
+      - build-macos-wheel:
+          requires:
+            - unit-tests
+      - build-windows-wheel:
+          requires:
+            - unit-tests
+      - integration-test-linux:
+          requires:
+            - build-linux-wheel
+      - integration-test-macos:
+          requires:
+            - build-macos-wheel
+      - integration-test-windows:
+          requires:
+            - build-windows-wheel
+      - publish-to-testpypi:
+          requires:
+            - integration-test-linux
+          filters:
+            branches:
+              only: master
