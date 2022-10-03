@@ -21,6 +21,18 @@ orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
+  triage-mac:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - run:
+          name: Triage1
+          command: |
+            touch ~/.bashrc
+            echo "alias python='python3'" >> ~/.bashrc
+      - run:
+          name: Triage2
+          command: python --version
   unit-tests:
     docker:
       - image: cimg/rust:1.64.0
@@ -201,28 +213,29 @@ jobs:
 workflows:
   unit-test-build-and-integration-test:
     jobs:
-      - unit-tests
-      - build-linux-wheel:
-          requires:
-            - unit-tests
-      - build-macos-wheel:
-          requires:
-            - unit-tests
-      - build-windows-wheel:
-          requires:
-            - unit-tests
-      - integration-test-linux:
-          requires:
-            - build-linux-wheel
-      - integration-test-macos:
-          requires:
-            - build-macos-wheel
-      - integration-test-windows:
-          requires:
-            - build-windows-wheel
-      - publish-to-testpypi:
-          requires:
-            - integration-test-linux
-          filters:
-            branches:
-              only: master
+      - triage-mac
+      # - unit-tests
+      # - build-linux-wheel:
+      #     requires:
+      #       - unit-tests
+      # - build-macos-wheel:
+      #     requires:
+      #       - unit-tests
+      # - build-windows-wheel:
+      #     requires:
+      #       - unit-tests
+      # - integration-test-linux:
+      #     requires:
+      #       - build-linux-wheel
+      # - integration-test-macos:
+      #     requires:
+      #       - build-macos-wheel
+      # - integration-test-windows:
+      #     requires:
+      #       - build-windows-wheel
+      # - publish-to-testpypi:
+      #     requires:
+      #       - integration-test-linux
+      #     filters:
+      #       branches:
+      #         only: master
