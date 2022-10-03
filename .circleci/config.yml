@@ -50,10 +50,10 @@ jobs:
       - checkout
       - rust/install
       - run:
-          name: "Update pip"
+          name: Update pip
           command: python3 -m pip install --upgrade pip
       - run:    
-          name: "Build Project"
+          name: Build Project
           command: |
             pip3 install maturin
             cd src/python_wrapper
@@ -73,7 +73,7 @@ jobs:
       - checkout
       - rust/install
       - run:
-          name: "Install Maturin and Build Wheel"
+          name: Install Maturin and Build Wheel
           command: |
             cd src/python_wrapper
             PYBIN_DIR="/opt/python/cp37-cp37m/bin"
@@ -155,6 +155,7 @@ jobs:
       - run:
           name: Smoke test
           command: |
+            brew install wget
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
             python3 -c "import cvldoc_parser
@@ -169,12 +170,13 @@ jobs:
       - run:
           name: Install wheel
           command: |
-            pip --version
+            pip install --upgrade pip
             pip install wheels/*win*
           shell: bash.exe
       - run:
           name: Smoke test
           command: |
+            choco install wget
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
             python -c "import cvldoc_parser
