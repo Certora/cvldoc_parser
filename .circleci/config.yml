@@ -8,19 +8,13 @@ defines:
       parsed = cvldoc_parser.parse([\"definition_test.spec\"])
       assert len(parsed[0]) == 3, \"should parse to 3 elements\""
 
-  repeated-jobs:
+  store-and-persist:
     - store_artifacts: &store-wheel
         path: ./src/python_wrapper/target/wheels
     - persist_to_workspace: &persist-wheel
         root: ./src/python_wrapper/target
         paths:
           - wheels/*
-    - run: &upgrade-pip
-        name: Update pip
-        command: pip install --upgrade pip
-    - run: &install-maturin
-        name: Install maturin
-        command: pip install maturin
     
 version: 2.1
 orbs:
@@ -73,14 +67,14 @@ jobs:
     steps:
       - checkout
       - rust/install
-      - run:
-          name: alias python and pip
-          command: |
-            alias python="$(which python3)"
-            alias pip="$(which pip3)"
-      - run: *upgrade-pip
+      - run: 
+          name: Upgrade pip
+          command: pip3 install --upgrade pip
+      - run: 
+          name: Install maturin
+          command: pip3 install --user maturin
       - run:    
-          name: Build Project
+          name: Build wheel
           command: |
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
@@ -94,7 +88,9 @@ jobs:
     steps:
       - checkout
       - rust/install
-      - run: *install-maturin
+      - run: 
+          name: Install maturin
+          command: pip install --user maturin
       - run:
           name: Build Wheel
           command: |
@@ -108,10 +104,12 @@ jobs:
     steps:
       - checkout
       - run:
-          <<: *upgrade-pip
+          name: Upgrade pip
+          command: pip install --upgrade pip
           shell: bash.exe
       - run:
-          <<: *install-maturin
+          name: Install maturin
+          command: pip install --user maturin
           shell: bash.exe
       - run:
           name: Install Rust
