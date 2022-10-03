@@ -16,13 +16,13 @@ defines:
         paths:
           - wheels/*
   
-  upgrade-pip: &upgrade-pip
-    - run:
+  upgrade-pip: 
+    - run: &upgrade-pip
         name: Update pip
         command: pip install --upgrade pip
   
-  install-maturin: &install-maturin
-    - run: 
+  install-maturin: 
+    - run: &install-maturin
         name: Install maturin
         command: pip install maturin
     
