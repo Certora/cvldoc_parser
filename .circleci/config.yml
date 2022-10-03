@@ -43,7 +43,7 @@ jobs:
           name: Run cargo test
           command: cargo test
     
-  build-macos-wheels:
+  build-macos-wheel:
     macos:
       xcode: 13.4.1
     steps:
@@ -66,14 +66,14 @@ jobs:
           paths:
             - wheels/*
 
-  build-linux-wheels:
+  build-linux-wheel:
     docker:
       - image: quay.io/pypa/manylinux2014_x86_64:latest
     steps:
       - checkout
       - rust/install
       - run:
-          name: "Install Maturin and Build Wheels"
+          name: "Install Maturin and Build Wheel"
           command: |
             cd src/python_wrapper
             PYBIN_DIR="/opt/python/cp37-cp37m/bin"
@@ -86,7 +86,7 @@ jobs:
           paths:
             - wheels/*
 
-  build-windows-wheels:
+  build-windows-wheel:
     executor: win/default
     steps:
       - checkout
@@ -108,7 +108,7 @@ jobs:
             echo "git-fetch-with-cli = true" >> ~/.cargo/config
           shell: bash.exe
       - run:
-          name: Build Wheels
+          name: Build Wheel
           command: |
             export PATH=${HOME}/.cargo/bin:$PATH
             cd src/python_wrapper
@@ -121,6 +121,18 @@ jobs:
           root: ./src/python_wrapper/target
           paths:
             - wheels/*
+
+  integration-test-linux:
+    docker:
+      - image: ubuntu-2004:202010-01
+    steps:
+      - attach_workspace:
+         at: .
+      - run:
+          name: "Install wheel"
+          command: |
+             pip install -i https://test.pypi.org/simple/ cvldoc-parser
+            
 
   publish-to-testpypi:
     docker:
@@ -141,20 +153,27 @@ workflows:
   build-and-integration-test:
     jobs:
       - local-tests
-      - build-linux-wheels:
+      - build-linux-wheel:
           requires:
             - local-tests
-      - build-macos-wheels:
+      # - build-macos-wheel:
+      #     requires:
+      #         - local-tests
+      # - build-windows-wheel:
+      #     requires:
+      #         - local-tests
+      - integration-test-linux:
           requires:
-              - local-tests
-      - build-windows-wheels:
-          requires:
-              - local-tests
-      - publish-to-testpypi:
-          requires:
-            - build-linux-wheels
-            - build-macos-wheels
-            - build-windows-wheels
-          filters:
-            branches:
-              only: master
+            - build-linux-wheel
+      # - integration-test-macos:
+      #     requires:
+      #       - build-macos-wheel
+      # - integration-test-windows:
+      #     requires:
+      #       - build-windows-wheel
+      # - publish-to-testpypi:
+      #     requires:
+      #       - integration-test-linux
+      #     filters:
+      #       branches:
+      #         only: master
