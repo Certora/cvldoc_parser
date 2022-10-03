@@ -1,14 +1,13 @@
-version: 2.1
-definitions:
-  tests:
-    - run: &smoke-test
-        name: Smoke test
-        command: |
-          wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+defines:
+  - run: &smoke-test
+      name: Smoke test
+      command: |
+        wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
-          python -c "import cvldoc_parser
-          parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-          assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+        python -c "import cvldoc_parser
+        parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+        assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
