@@ -28,8 +28,8 @@ jobs:
       - run:
           name: Triage1
           command: |
-            printf "\n%s" "alias python='python3'" >> ~/.bash_profile
-            cat ~/.bash_profile
+            printf "\n%s" "alias python='python3'" >> ~/.bashrc
+            cat ~/.bashrc
       - run:
           name: Triage2
           command: python --version
