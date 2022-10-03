@@ -141,8 +141,8 @@ jobs:
 
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
             python -c "import cvldoc_parser
-            parsed = cvldoc_parser.parse('definition_test.spec')
-            print(parsed)"
+            parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+            assert len(parsed[0]) == 3"
             
 
   publish-to-testpypi:
