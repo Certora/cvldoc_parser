@@ -72,7 +72,7 @@ jobs:
           command: pip3 install --upgrade pip
       - run: 
           name: Install maturin
-          command: pip3 install --user maturin
+          command: pip3 install maturin
       - run:    
           name: Build wheel
           command: |
@@ -88,14 +88,13 @@ jobs:
     steps:
       - checkout
       - rust/install
-      - run: 
-          name: Install maturin
-          command: pip install --user maturin
       - run:
-          name: Build Wheel
+          name: Install Maturin and Build Wheel
           command: |
             cd src/python_wrapper
-            maturin build --bindings=pyo3
+            PYBIN_DIR="/opt/python/cp37-cp37m/bin"
+            "${PYBIN_DIR}/pip" install maturin
+            "${PYBIN_DIR}/maturin" build --bindings=pyo3
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
@@ -105,7 +104,7 @@ jobs:
       - checkout
       - run:
           name: Upgrade pip
-          command: pip install --upgrade pip
+          command: pip install --user --upgrade pip
           shell: bash.exe
       - run:
           name: Install maturin
