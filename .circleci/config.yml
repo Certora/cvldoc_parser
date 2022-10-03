@@ -3,7 +3,7 @@ orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
-  local-tests:
+  unit-tests:
     docker:
       - image: cimg/rust:1.64.0
     steps:
@@ -151,7 +151,7 @@ jobs:
           at: .
       - run:
           name: Install wheel
-          command: pip install wheels/*macosx*
+          command: python3 -m pip install wheels/*macosx*
       - run:
           name: Smoke test
           command: |
@@ -168,16 +168,19 @@ jobs:
           at: .
       - run:
           name: Install wheel
-          command: pip install wheels/*win*
+          command: |
+            pip --version
+            pip install wheels/*win*
           shell: bash.exe
       - run:
           name: Smoke test
           command: |
             wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
 
-            python3 -c "import cvldoc_parser
+            python -c "import cvldoc_parser
             parsed = cvldoc_parser.parse([\"definition_test.spec\"])
             assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+          shell: bash.exe
             
   publish-to-testpypi:
     docker:
@@ -186,7 +189,7 @@ jobs:
       - attach_workspace:
          at: .
       - run:
-          name: "Upload wheels to Test PyPI"
+          name: Upload wheels to Test PyPI
           command: |
             pip install --user twine
             for wheel in wheels/*.whl; do
