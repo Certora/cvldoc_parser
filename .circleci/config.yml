@@ -1,9 +1,27 @@
+defines:
+  smoke-test: &smoke-test
+    name: Smoke test
+    command: |
+      wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+
+      python -c "import cvldoc_parser
+      parsed = cvldoc_parser.parse([\"definition_test.spec\"])
+      assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+
+  store-and-persist:
+    - store_artifacts: &store-wheel
+        path: ./src/python_wrapper/target/wheels
+    - persist_to_workspace: &persist-wheel
+        root: ./src/python_wrapper/target
+        paths:
+          - wheels/*
+    
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
   win: circleci/windows@4.1.1
 jobs:
-  local-tests:
+  unit-tests:
     docker:
       - image: cimg/rust:1.64.0
     steps:
@@ -43,85 +61,128 @@ jobs:
           name: Run cargo test
           command: cargo test
     
-  build-macos-wheels:
+  build-macos-wheel:
     macos:
-      xcode: 13.4.1
+      xcode: 14.0.0
     steps:
       - checkout
       - rust/install
-      - run:
-          name: "Update pip"
-          command: python3 -m pip install --upgrade pip
+      - run: 
+          name: Upgrade pip
+          command: pip3 install --upgrade pip
+      - run: 
+          name: Install maturin
+          command: pip3 install maturin
       - run:    
-          name: "Build Project"
+          name: Build wheel
           command: |
-            pip3 install maturin
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
             maturin build --target=aarch64-apple-darwin --universal2
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-  build-linux-wheels:
+  build-linux-wheel:
     docker:
       - image: quay.io/pypa/manylinux2014_x86_64:latest
     steps:
       - checkout
       - rust/install
       - run:
-          name: "Install Maturin and Build Wheels"
+          name: Install Maturin and Build wheel
           command: |
             cd src/python_wrapper
             PYBIN_DIR="/opt/python/cp37-cp37m/bin"
             "${PYBIN_DIR}/pip" install maturin
             "${PYBIN_DIR}/maturin" build --bindings=pyo3
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels/
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-  build-windows-wheels:
+  build-windows-wheel:
     executor: win/default
     steps:
       - checkout
       - run:
-          name: Install Pip Dependecies
-          command: |
-            python -m pip install --upgrade pip
-            pip install maturin 
+          name: Upgrade pip
+          command: python -m pip install --upgrade pip
+          shell: bash.exe
+      - run:
+          name: Install maturin
+          command: pip install maturin
           shell: bash.exe
       - run:
           name: Install Rust
-          command: |
-            curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
+          command: curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
           shell: bash.exe
       - run:
-          name: Fix Cargo Config
+          name: Fix Cargo Config and $PATH
           command: |
             echo "[net]" >> ~/.cargo/config
             echo "git-fetch-with-cli = true" >> ~/.cargo/config
           shell: bash.exe
       - run:
-          name: Build Wheels
+          name: Build wheel
           command: |
             export PATH=${HOME}/.cargo/bin:$PATH
             cd src/python_wrapper
             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
           shell: bash.exe
-      - store_artifacts:
-          path: ./src/python_wrapper/target/wheels
-      - persist_to_workspace:
-          root: ./src/python_wrapper/target
-          paths:
-            - wheels/*
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
+  integration-test-linux:
+    docker:
+      - image: python:3.7
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run: 
+          <<: *smoke-test
+
+  integration-test-macos:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: brew install wget
+      - run:
+          name: Alias python to python3
+          command: printf "\n%s\n%s" "alias python=python3" "shopt -s expand_aliases" >> ~/.bash_profile
+      - run:
+          name: Install wheel
+          command: python3 -m pip install wheels/*macosx*
+      - run: 
+          <<: *smoke-test
+  
+  integration-test-windows:
+    executor: win/default
+    steps:
+      - attach_workspace:
+          at: .
+      - run: 
+          name: Install dependencies
+          command: choco install wget
+          shell: bash.exe
+      - run:
+          name: Install wheel
+          command: |
+            pip install --upgrade pip
+            pip install wheels/*win*
+          shell: bash.exe
+      - run: 
+          <<: *smoke-test
+          shell: bash.exe
+            
   publish-to-testpypi:
     docker:
       - image: cimg/python:3.10.7
@@ -129,7 +190,7 @@ jobs:
       - attach_workspace:
          at: .
       - run:
-          name: "Upload wheels to Test PyPI"
+          name: Upload wheels to Test PyPI
           command: |
             pip install --user twine
             for wheel in wheels/*.whl; do
@@ -138,23 +199,32 @@ jobs:
             done
 
 workflows:
-  build-and-integration-test:
+  unit-test-build-and-integration-test:
     jobs:
-      - local-tests
-      - build-linux-wheels:
+      - unit-tests
+      - build-linux-wheel:
           requires:
-            - local-tests
-      - build-macos-wheels:
+            - unit-tests
+      - build-macos-wheel:
           requires:
-              - local-tests
-      - build-windows-wheels:
+            - unit-tests
+      - build-windows-wheel:
           requires:
-              - local-tests
+            - unit-tests
+      - integration-test-linux:
+          requires:
+            - build-linux-wheel
+      - integration-test-macos:
+          requires:
+            - build-macos-wheel
+      - integration-test-windows:
+          requires:
+            - build-windows-wheel
       - publish-to-testpypi:
           requires:
-            - build-linux-wheels
-            - build-macos-wheels
-            - build-windows-wheels
+            - integration-test-linux
+            - integration-test-macos
+            - integration-test-windows
           filters:
             branches:
               only: master
