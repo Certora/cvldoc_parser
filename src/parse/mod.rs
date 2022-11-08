@@ -35,21 +35,21 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
     let stars = just('*').repeated().at_least(3);
     let thick_starred_padding = just('/').then(stars).then(just('/')).then(newline_or_end());
 
-    let starred_header = just('/')
-        .ignore_then(stars)
-        .ignore_then(horizontal_ws())
-        .ignore_then(take_to_starred_terminator())
-        .then_ignore(newline_or_end())
-        .collect()
-        .map(|line: String| {
-            let padding = &[' ', '\t', '*'];
-            line.trim_end_matches(padding).to_string()
-        })
-        .boxed();
+    let starred_header = {
+        let endings = choice((just("*/\r\n"), just("*/\n"), just("*/").then_ignore(end())));
+        let content = take_until_without_terminator(endings);
+
+        just("/***")
+            .ignore_then(content)
+            .map(|line| {
+                static PADDING: &[char] = &[' ', '\t', '*'];
+                let line = String::from_iter(line);
+                line.trim_matches(PADDING).to_string()
+            })
+            .boxed()
+    };
 
     let starred_single_line_free_form = starred_header.clone();
-    let starred_single_line_free_form_without_text =
-        thick_starred_padding.clone().map(|_| String::new()).boxed();
     let starred_thick_free_form = starred_header.padded_by(thick_starred_padding).boxed();
 
     let starred_multi_line_first_line = just("/***").then(newline()).boxed();
@@ -73,7 +73,6 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
         starred_free_form,
         starred_thick_free_form,
         starred_single_line_free_form,
-        starred_single_line_free_form_without_text,
     ])
     .map_with_span(|text, span| CvlDocBuilder::FreeFormComment { text, span })
     .boxed()

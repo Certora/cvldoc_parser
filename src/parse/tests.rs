@@ -23,6 +23,16 @@ macro_rules! param {
     };
 }
 
+trait PostfixDbg {
+    fn dbg(self) -> Self;
+}
+
+impl<T: std::fmt::Debug> PostfixDbg for T {
+    fn dbg(self) -> Self {
+        dbg!(self)
+    }
+}
+
 impl CvlDoc {
     fn data(self) -> DocData {
         self.data
@@ -47,6 +57,17 @@ fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
         assert_eq!(expected.0, actual.0, "parsed param type is different");
         assert_eq!(expected.1, actual.1, "parsed param name is different");
     }
+}
+
+fn find_associated_element_by_name<'a>(
+    expected_name: &str,
+    parsed_docs: &'a [CvlDoc],
+) -> Option<&'a CvlDoc> {
+    parsed_docs.iter().find(|doc| {
+        let DocData::Documentation { associated: Some(assoc), .. } = &doc.data else { return false; };
+        let Some(name) = assoc.name() else { return false; };
+        name == expected_name
+    })
 }
 
 #[test]
@@ -515,9 +536,34 @@ fn freeform_stars_without_text() {
         init_state axiom forall uint256 token . sumOfBalances[token] == 0;
     }
     "#};
-    
+
     let parsed_doc_data = parse_to_exactly_one_element(src).map(CvlDoc::data);
 
     let Ok(DocData::FreeForm(s)) = parsed_doc_data else { panic!() };
     assert!(s.is_empty());
+}
+
+#[test]
+fn freeform_stars_before_and_after() {
+    let src = indoc! { r#"
+    /******************************************************************************/
+
+    /// The sum of the balances over all users must equal the total supply for a 
+    /// given token.
+    invariant total_supply_is_sum_of_balances(uint256 token)
+        sumOfBalances[token] == totalSupply(token)
+        {
+            preserved {
+                requireInvariant balanceOfZeroAddressIsZero(token);
+            }
+        }
+
+    /******************************************************************************/
+
+    "#};
+
+    let expected_name = "total_supply_is_sum_of_balances";
+    let parsed_docs = parse_src(src);
+
+    assert!(find_associated_element_by_name(expected_name, &parsed_docs).is_some());
 }
