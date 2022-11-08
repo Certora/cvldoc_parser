@@ -48,6 +48,8 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
         .boxed();
 
     let starred_single_line_free_form = starred_header.clone();
+    let starred_single_line_free_form_without_text =
+        thick_starred_padding.clone().map(|_| String::new()).boxed();
     let starred_thick_free_form = starred_header.padded_by(thick_starred_padding).boxed();
 
     let starred_multi_line_first_line = just("/***").then(newline()).boxed();
@@ -71,6 +73,7 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
         starred_free_form,
         starred_thick_free_form,
         starred_single_line_free_form,
+        starred_single_line_free_form_without_text,
     ])
     .map_with_span(|text, span| CvlDocBuilder::FreeFormComment { text, span })
     .boxed()

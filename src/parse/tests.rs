@@ -23,6 +23,12 @@ macro_rules! param {
     };
 }
 
+impl CvlDoc {
+    fn data(self) -> DocData {
+        self.data
+    }
+}
+
 fn data_of_first(docs: &[CvlDoc]) -> Option<&DocData> {
     docs.first().map(|doc| &doc.data)
 }
@@ -491,11 +497,27 @@ fn methods_with_whitespace_between_name_and_params() {
     }
         "#};
 
-    let parsed = parse_to_exactly_one_element(&src).unwrap();
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
     if let DocData::Documentation { associated, .. } = parsed.data {
         assert_matches!(associated, Some(AssociatedElement::Rule { .. }));
     } else {
         panic!("should have been parsed as documentation");
     }
+}
+
+#[test]
+fn freeform_stars_without_text() {
+    // let src = "definition harness_isListed(address a, uint i) returns bool = 0 <= i && i < shadowLenArray() && shadowArray(i) == a ;";
+    let src = indoc! { r#"
+    /******************************************************************************/
+    ghost mapping(uint256 => mathint) sumOfBalances {
+        init_state axiom forall uint256 token . sumOfBalances[token] == 0;
+    }
+    "#};
+    
+    let parsed_doc_data = parse_to_exactly_one_element(src).map(CvlDoc::data);
+
+    let Ok(DocData::FreeForm(s)) = parsed_doc_data else { panic!() };
+    assert!(s.is_empty());
 }
