@@ -52,6 +52,17 @@ fn parse(paths: Vec<&str>) -> Vec<Py<PyAny>> {
 
 #[pymodule]
 fn cvldoc_parser(_py: Python, m: &PyModule) -> PyResult<()> {
+    use wrapper_structs::*;
+
+    m.add_class::<Documentation>()?;
+    m.add_class::<FreeForm>()?;
+    m.add_class::<AssociatedElement>()?;
+    m.add_class::<DocumentationTag>()?;
+    m.add_class::<Diagnostic>()?;
+    m.add_class::<Severity>()?;
+    m.add_class::<Position>()?;
+    m.add_class::<Range>()?;
+    
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }
