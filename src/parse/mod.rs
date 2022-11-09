@@ -114,10 +114,10 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
     documentation
-        .then(associated_element().or_not())
+        .then(associated_element().or_not().map_with_span(|associated, span| (associated, span)))
         .map(
-            |((spanned_body, span), associated)| CvlDocBuilder::Documentation {
-                span,
+            |((spanned_body, doc_span), (associated, associated_span))| CvlDocBuilder::Documentation {
+                span: doc_span.start()..associated_span.end(),
                 spanned_body,
                 associated,
             },
