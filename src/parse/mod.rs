@@ -3,7 +3,7 @@ pub mod builder;
 mod helpers;
 mod terminated_line;
 
-use self::associated_element::associated_element;
+use self::associated_element::element_parser;
 use crate::parse::terminated_line::JoinToString;
 use builder::CvlDocBuilder;
 use chumsky::{prelude::*, text::whitespace};
@@ -113,15 +113,24 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
     let documentation = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
+    let optional_associated_element = element_parser()
+        .or_not()
+        .map_with_span(|associated, span| (associated, span))
+        .boxed();
+
     documentation
-        .then(associated_element().or_not().map_with_span(|associated, span| (associated, span)))
-        .map(
-            |((spanned_body, doc_span), (associated, associated_span))| CvlDocBuilder::Documentation {
+        .then_ignore(optional_sep_immediately_after_doc())
+        .then(optional_associated_element)
+        .map(|(doc, element)| {
+            let (spanned_body, doc_span) = doc;
+            let (associated, associated_span) = element;
+
+            CvlDocBuilder::Documentation {
                 span: doc_span.start()..associated_span.end(),
                 spanned_body,
                 associated,
-            },
-        )
+            }
+        })
         .boxed()
 }
 

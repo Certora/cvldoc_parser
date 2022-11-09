@@ -61,7 +61,7 @@ fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
     }
 }
 
-fn find_associated_element_by_name<'a>(
+fn find_by_name_of_associated_element<'a>(
     expected_name: &str,
     parsed_docs: &'a [CvlDoc],
 ) -> Option<&'a CvlDoc> {
@@ -300,7 +300,7 @@ fn commented_out_blocks_are_ignored() {
             */
         "#};
 
-    let parsed = parse_src(src);
+    let parsed = dbg!(parse_src(src));
     assert!(
         parsed.is_empty(),
         "valid CVLDoc blocks were parsed from commented out blocks"
@@ -572,7 +572,7 @@ fn freeform_stars_before_and_after() {
     let expected_name = "total_supply_is_sum_of_balances";
     let parsed_docs = parse_src(src);
 
-    assert!(find_associated_element_by_name(expected_name, &parsed_docs).is_some());
+    assert!(find_by_name_of_associated_element(expected_name, &parsed_docs).is_some());
 }
 
 #[test]

@@ -10,7 +10,7 @@ use std::{fs::File, io::Read};
 use wrapper_structs::conversions::cvldoc_to_py_object;
 
 fn cvldocs_from_path(path: &str) -> Result<Vec<CvlDoc>> {
-    let mut file = File::open(&path).wrap_err_with(|| format!("file does not exist: {path}"))?;
+    let mut file = File::open(path).wrap_err_with(|| format!("file does not exist: {path}"))?;
 
     let rope = {
         let mut data = String::new();
