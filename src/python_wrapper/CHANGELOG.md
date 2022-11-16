@@ -1,4 +1,9 @@
 # Changelog
+## [0.5.0] - 2022-11-16
+### Added
+- Expose wrapper classes to Python, so their types can be named 
+
+
 ## [0.4.2] - 2022-10-02
 ### Fixed
 - Sync with `cvldoc_parser_core` version `0.4.2`.
