@@ -62,7 +62,7 @@ fn cvldoc_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Severity>()?;
     m.add_class::<Position>()?;
     m.add_class::<Range>()?;
-    
+
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

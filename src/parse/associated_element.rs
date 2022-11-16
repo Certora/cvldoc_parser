@@ -316,8 +316,7 @@ fn definition_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<
         .boxed()
 }
 
-pub(super) fn element_parser<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>>
-{
+pub(super) fn element_parser<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
     choice([
         rule_decl(),
         methods_decl(),
