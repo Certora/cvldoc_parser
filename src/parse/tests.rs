@@ -3,11 +3,13 @@ use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
 use color_eyre::eyre::bail;
 use color_eyre::Report;
+use color_eyre::Result;
 use indoc::indoc;
 use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
+use std::path::Path;
 
 fn parse_src(src: &str) -> Vec<CvlDoc> {
     let rope = Rope::from_str(src);
@@ -21,6 +23,22 @@ macro_rules! param {
     ($ty:expr, $name:expr) => {
         ($ty.to_string(), Some($name.to_string()))
     };
+}
+
+trait PostfixDbg {
+    fn dbg(self) -> Self;
+}
+
+impl<T: std::fmt::Debug> PostfixDbg for T {
+    fn dbg(self) -> Self {
+        dbg!(self)
+    }
+}
+
+impl CvlDoc {
+    fn data(self) -> DocData {
+        self.data
+    }
 }
 
 fn data_of_first(docs: &[CvlDoc]) -> Option<&DocData> {
@@ -41,6 +59,22 @@ fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
         assert_eq!(expected.0, actual.0, "parsed param type is different");
         assert_eq!(expected.1, actual.1, "parsed param name is different");
     }
+}
+
+fn find_by_name_of_associated_element<'a>(
+    expected_name: &str,
+    parsed_docs: &'a [CvlDoc],
+) -> Option<&'a CvlDoc> {
+    parsed_docs.iter().find(|doc| {
+        let DocData::Documentation { associated: Some(assoc), .. } = &doc.data else { return false; };
+        let Some(name) = assoc.name() else { return false; };
+        name == expected_name
+    })
+}
+
+fn parse_from_path(path: impl AsRef<Path>) -> Result<Vec<CvlDoc>> {
+    let spec = std::fs::read_to_string(path)?;
+    Ok(parse_src(spec.as_str()))
 }
 
 #[test]
@@ -266,7 +300,7 @@ fn commented_out_blocks_are_ignored() {
             */
         "#};
 
-    let parsed = parse_src(src);
+    let parsed = dbg!(parse_src(src));
     assert!(
         parsed.is_empty(),
         "valid CVLDoc blocks were parsed from commented out blocks"
@@ -491,11 +525,76 @@ fn methods_with_whitespace_between_name_and_params() {
     }
         "#};
 
-    let parsed = parse_to_exactly_one_element(&src).unwrap();
+    let parsed = parse_to_exactly_one_element(src).unwrap();
 
     if let DocData::Documentation { associated, .. } = parsed.data {
         assert_matches!(associated, Some(AssociatedElement::Rule { .. }));
     } else {
         panic!("should have been parsed as documentation");
     }
+}
+
+#[test]
+fn freeform_stars_without_text() {
+    // let src = "definition harness_isListed(address a, uint i) returns bool = 0 <= i && i < shadowLenArray() && shadowArray(i) == a ;";
+    let src = indoc! { r#"
+    /******************************************************************************/
+    ghost mapping(uint256 => mathint) sumOfBalances {
+        init_state axiom forall uint256 token . sumOfBalances[token] == 0;
+    }
+    "#};
+
+    let parsed_doc_data = parse_to_exactly_one_element(src).map(CvlDoc::data);
+
+    let Ok(DocData::FreeForm(s)) = parsed_doc_data else { panic!() };
+    assert!(s.is_empty());
+}
+
+#[test]
+fn freeform_stars_before_and_after() {
+    let src = indoc! { r#"
+    /******************************************************************************/
+
+    /// The sum of the balances over all users must equal the total supply for a 
+    /// given token.
+    invariant total_supply_is_sum_of_balances(uint256 token)
+        sumOfBalances[token] == totalSupply(token)
+        {
+            preserved {
+                requireInvariant balanceOfZeroAddressIsZero(token);
+            }
+        }
+
+    /******************************************************************************/
+
+    "#};
+
+    let expected_name = "total_supply_is_sum_of_balances";
+    let parsed_docs = parse_src(src);
+
+    assert!(find_by_name_of_associated_element(expected_name, &parsed_docs).is_some());
+}
+
+#[test]
+fn span_contains_both_doc_and_associated_element() {
+    let src = indoc! { r#"
+    /// If a method call reduces account balances, the caller must be either the 
+    /// holder of the account or approved to act on the holder's behalf.
+    rule onlyHolderOrApprovedCanReduceBalance(method f) 
+    {
+        address holder; uint256 token; uint256 amount;
+        uint256 balanceBefore = balanceOf(holder, token);
+
+        env e; calldataarg args;
+        f(e, args);
+
+        uint256 balanceAfter = balanceOf(holder, token);
+
+        assert balanceAfter < balanceBefore => e.msg.sender == holder || isApprovedForAll(holder, e.msg.sender), 
+            "An account balance may only be reduced by the holder or a holder-approved agent";
+    }
+    "#};
+
+    let Ok(CvlDoc { raw, .. }) = parse_to_exactly_one_element(src) else { panic!() };
+    assert_eq!(raw, src.trim());
 }

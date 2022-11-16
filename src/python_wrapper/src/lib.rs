@@ -10,7 +10,7 @@ use std::{fs::File, io::Read};
 use wrapper_structs::conversions::cvldoc_to_py_object;
 
 fn cvldocs_from_path(path: &str) -> Result<Vec<CvlDoc>> {
-    let mut file = File::open(&path).wrap_err_with(|| format!("file does not exist: {path}"))?;
+    let mut file = File::open(path).wrap_err_with(|| format!("file does not exist: {path}"))?;
 
     let rope = {
         let mut data = String::new();
@@ -52,6 +52,17 @@ fn parse(paths: Vec<&str>) -> Vec<Py<PyAny>> {
 
 #[pymodule]
 fn cvldoc_parser(_py: Python, m: &PyModule) -> PyResult<()> {
+    use wrapper_structs::*;
+
+    m.add_class::<Documentation>()?;
+    m.add_class::<FreeForm>()?;
+    m.add_class::<AssociatedElement>()?;
+    m.add_class::<DocumentationTag>()?;
+    m.add_class::<Diagnostic>()?;
+    m.add_class::<Severity>()?;
+    m.add_class::<Position>()?;
+    m.add_class::<Range>()?;
+
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

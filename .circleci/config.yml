@@ -23,12 +23,14 @@ orbs:
 jobs:
   unit-tests:
     docker:
-      - image: cimg/rust:1.64.0
+      - image: cimg/rust:1.65.0
     steps:
       - checkout
       - run:
           name: Install ripgrep
-          command: sudo apt-get install ripgrep
+          command: |
+            curl -LO https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb
+            sudo dpkg -i ripgrep_13.0.0_amd64.deb
       - run:
           name: Check version matches of Cargo.toml, pyproject.toml and CHANGELOG
           command: |

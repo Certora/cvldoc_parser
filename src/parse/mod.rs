@@ -3,7 +3,7 @@ pub mod builder;
 mod helpers;
 mod terminated_line;
 
-use self::associated_element::associated_element;
+use self::associated_element::element_parser;
 use crate::parse::terminated_line::JoinToString;
 use builder::CvlDocBuilder;
 use chumsky::{prelude::*, text::whitespace};
@@ -35,17 +35,19 @@ fn free_form_comment<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple<ch
     let stars = just('*').repeated().at_least(3);
     let thick_starred_padding = just('/').then(stars).then(just('/')).then(newline_or_end());
 
-    let starred_header = just('/')
-        .ignore_then(stars)
-        .ignore_then(horizontal_ws())
-        .ignore_then(take_to_starred_terminator())
-        .then_ignore(newline_or_end())
-        .collect()
-        .map(|line: String| {
-            let padding = &[' ', '\t', '*'];
-            line.trim_end_matches(padding).to_string()
-        })
-        .boxed();
+    let starred_header = {
+        let endings = choice((just("*/\r\n"), just("*/\n"), just("*/").then_ignore(end())));
+        let content = take_until_without_terminator(endings);
+
+        just("/***")
+            .ignore_then(content)
+            .map(|line| {
+                static PADDING: &[char] = &[' ', '\t', '*'];
+                let line = String::from_iter(line);
+                line.trim_matches(PADDING).to_string()
+            })
+            .boxed()
+    };
 
     let starred_single_line_free_form = starred_header.clone();
     let starred_thick_free_form = starred_header.padded_by(thick_starred_padding).boxed();
@@ -111,15 +113,24 @@ fn cvldoc_documentation<'src>() -> BoxedParser<'src, char, CvlDocBuilder, Simple
     let documentation = choice([slashed_documentation, starred_documentation])
         .map_with_span(|spanned_body, span| (spanned_body, span));
 
+    let optional_associated_element = element_parser()
+        .or_not()
+        .map_with_span(|associated, span| (associated, span))
+        .boxed();
+
     documentation
-        .then(associated_element().or_not())
-        .map(
-            |((spanned_body, span), associated)| CvlDocBuilder::Documentation {
-                span,
+        .then_ignore(optional_sep_immediately_after_doc())
+        .then(optional_associated_element)
+        .map(|(doc, element)| {
+            let (spanned_body, doc_span) = doc;
+            let (associated, associated_span) = element;
+
+            CvlDocBuilder::Documentation {
+                span: doc_span.start()..associated_span.end(),
                 spanned_body,
                 associated,
-            },
-        )
+            }
+        })
         .boxed()
 }
 

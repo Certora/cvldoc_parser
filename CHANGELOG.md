@@ -1,4 +1,11 @@
 # Changelog
+## [0.5.0] - 2022-11-16
+### Fixed
+- Handle lines of the form /*****/ (for any amount of *)
+- Ignore /*****/ (for any amount of *) when it is a separator between elements
+- Fixed element span to contain both the documentation block and the associated element
+
+
 ## [0.4.2] - 2022-10-02
 ### Fixed
 - Fix issue with recognition of `rule` blocks.

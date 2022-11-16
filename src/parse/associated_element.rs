@@ -64,29 +64,6 @@ fn mandatory_sep<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
     mandatory_ws.ignore_then(optional_sep()).boxed()
 }
 
-/// when parsing the block associated with the documentation, we are dealing with
-/// a stream of tokens. tokens may be separated by some combination of whitespace or comments.
-/// since we do not go through a lexing stage that filters them out, we must assume
-/// that they may exist (possibly repeatedly) between any valid token of the associated block.
-fn optional_sep_immediately_after_doc<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
-    let single_line_comment_between_tokens = just("//")
-        .then(none_of('/').rewind())
-        .then(take_to_newline_or_end())
-        .ignored();
-
-    //we cannot use the usual multi-line comment parser here, since it is
-    //now allowed to have "/**" as a comment starter.
-    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
-
-    let comment = choice((
-        single_line_comment_between_tokens,
-        multi_line_comment_between_tokens,
-    ))
-    .padded();
-
-    comment.repeated().ignored().padded().boxed()
-}
-
 fn optional_sep<'src>() -> BoxedParser<'src, char, (), Simple<char>> {
     //we cannot use the usual multi-line comment parser here, since it is
     //now allowed to have "/**" as a comment starter.
@@ -339,18 +316,14 @@ fn definition_decl<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<
         .boxed()
 }
 
-pub(super) fn associated_element<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>>
-{
-    let decl = choice([
+pub(super) fn element_parser<'src>() -> BoxedParser<'src, char, AssociatedElement, Simple<char>> {
+    choice([
         rule_decl(),
         methods_decl(),
         invariant_decl(),
         function_decl(),
         ghost_decl(),
         definition_decl(),
-    ]);
-
-    optional_sep_immediately_after_doc()
-        .ignore_then(decl)
-        .boxed()
+    ])
+    .boxed()
 }
