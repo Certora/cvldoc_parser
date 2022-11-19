@@ -1,6 +1,7 @@
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
+use chumsky::{Parser, Stream};
 use color_eyre::eyre::bail;
 use color_eyre::Report;
 use color_eyre::Result;
@@ -10,6 +11,8 @@ use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
 use std::path::Path;
+
+use super::lexed;
 
 fn parse_src(src: &str) -> Vec<CvlDoc> {
     let rope = Rope::from_str(src);
@@ -598,3 +601,35 @@ fn span_contains_both_doc_and_associated_element() {
     let Ok(CvlDoc { raw, .. }) = parse_to_exactly_one_element(src) else { panic!() };
     assert_eq!(raw, src.trim());
 }
+
+#[test]
+fn new_parser() {
+    let src = indoc! { r#"
+    /// If a method call reduces account balances, the caller must be either the 
+    /// holder of the account or approved to act on the holder's behalf.
+    rule onlyHolderOrApprovedCanReduceBalance(method f) 
+    {
+        address holder; uint256 token; uint256 amount;
+        uint256 balanceBefore = balanceOf(holder, token);
+
+        env e; calldataarg args;
+        f(e, args);
+
+        uint256 balanceAfter = balanceOf(holder, token);
+
+        assert balanceAfter < balanceBefore => e.msg.sender == holder || isApprovedForAll(holder, e.msg.sender), 
+            "An account balance may only be reduced by the holder or a holder-approved agent";
+    }
+    "#};
+    let after_lexing = lexed::lexer().parse(src).unwrap();
+    // dbg!(&after_lexing);
+
+    let len = src.chars().count();
+    let mut stream = Stream::from_iter(len..len+1, after_lexing.into_iter());
+    // stream.fetch_tokens().for_each(|(token, span)| println!("{token:?}"));
+    let after_parsing = lexed::intermediate_parser().parse(stream);
+    dbg!(after_parsing);
+    dbg!(&src[..147]);
+}
+
+

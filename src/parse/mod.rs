@@ -2,6 +2,7 @@ mod associated_element;
 pub mod builder;
 mod helpers;
 mod terminated_line;
+mod lexed;
 
 use self::associated_element::element_parser;
 use crate::parse::terminated_line::JoinToString;
