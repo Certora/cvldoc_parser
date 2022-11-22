@@ -1,3 +1,4 @@
+use crate::parse::lexed::{Ast, Token};
 use crate::util::span_to_range::RangeConverter;
 use crate::{AssociatedElement, CvlDoc, DocData, Param, Tag};
 use assert_matches::assert_matches;
@@ -10,8 +11,10 @@ use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
 use std::iter::zip;
+use std::ops::Not;
 use std::path::Path;
 
+use super::builder::CvlDocBuilder;
 use super::lexed;
 
 fn parse_src(src: &str) -> Vec<CvlDoc> {
@@ -303,7 +306,7 @@ fn commented_out_blocks_are_ignored() {
             */
         "#};
 
-    let parsed = dbg!(parse_src(src));
+    let parsed = parse_src(src);
     assert!(
         parsed.is_empty(),
         "valid CVLDoc blocks were parsed from commented out blocks"
@@ -605,31 +608,127 @@ fn span_contains_both_doc_and_associated_element() {
 #[test]
 fn new_parser() {
     let src = indoc! { r#"
-    /// If a method call reduces account balances, the caller must be either the 
-    /// holder of the account or approved to act on the holder's behalf.
-    rule onlyHolderOrApprovedCanReduceBalance(method f) 
+    //// ## Verification of ERC1155Supply
+    //// 
+    //// `ERC1155Supply` extends the `ERC1155` functionality. The contract creates a publicly callable `totalSupply` wrapper for the private `_totalSupply` method, a public `exists` method to check for a positive balance of a given token, and updates `_beforeTokenTransfer` to appropriately change the mapping `_totalSupply` in the context of minting and burning tokens.
+    //// 
+    //// ### Assumptions and Simplifications
+    //// - The `exists` method was wrapped in the `exists_wrapper` method because `exists` is a keyword in CVL.
+    //// - The public functions `burn`, `burnBatch`, `mint`, and `mintBatch` were implemented in the harnesssing contract make their respective internal functions callable by the CVL. This was used to test the increase and decrease of `totalSupply` when tokens are minted and burned. 
+    //// - We created the `onlyOwner` modifier to be used in the above functions so that they are not called in unrelated rules.
+    //// 
+    //// ### Properties
+
+
+    methods {
+        totalSupply(uint256) returns uint256 envfree
+        balanceOf(address, uint256) returns uint256 envfree
+        exists_wrapper(uint256) returns bool envfree
+        owner() returns address envfree
+    }
+    
+    /// Given two different token ids, if totalSupply for one changes, then
+    /// totalSupply for other must not.
+    rule token_totalSupply_independence(method f)
+    filtered {
+        f -> f.selector != safeBatchTransferFrom(address,address,uint256[],uint256[],bytes).selector
+    }
     {
-        address holder; uint256 token; uint256 amount;
-        uint256 balanceBefore = balanceOf(holder, token);
+        uint256 token1; uint256 token2;
+        require token1 != token2;
+
+        uint256 token1_before = totalSupply(token1);
+        uint256 token2_before = totalSupply(token2);
 
         env e; calldataarg args;
+        require e.msg.sender != owner(); // owner can call mintBatch and burnBatch in our harness
         f(e, args);
 
-        uint256 balanceAfter = balanceOf(holder, token);
+        uint256 token1_after = totalSupply(token1);
+        uint256 token2_after = totalSupply(token2);
 
-        assert balanceAfter < balanceBefore => e.msg.sender == holder || isApprovedForAll(holder, e.msg.sender), 
-            "An account balance may only be reduced by the holder or a holder-approved agent";
+        assert token1_after != token1_before => token2_after == token2_before,
+            "methods must not change the total supply of more than one token";
     }
+
+    /******************************************************************************/
+
+    ghost mapping(uint256 => mathint) sumOfBalances {
+        init_state axiom forall uint256 token . sumOfBalances[token] == 0;
+    }
+
+    hook Sstore _balances[KEY uint256 token][KEY address user] uint256 newValue (uint256 oldValue) STORAGE {
+        sumOfBalances[token] = sumOfBalances[token] + newValue - oldValue;
+    }
+
+    /// The sum of the balances over all users must equal the total supply for a 
+    /// given token.
+    invariant total_supply_is_sum_of_balances(uint256 token)
+        sumOfBalances[token] == totalSupply(token)
+        {
+            preserved {
+                requireInvariant balanceOfZeroAddressIsZero(token);
+            }
+        }
+
+    /******************************************************************************/
+
+    /// The balance of a token for the zero address must be zero.
+    invariant balanceOfZeroAddressIsZero(uint256 token)
+        balanceOf(0, token) == 0
+
+    /// If a user has a token, then the token should exist.
+    rule held_tokens_should_exist {
+        address user; uint256 token;
+
+        requireInvariant balanceOfZeroAddressIsZero(token);
+
+        // This assumption is safe because of total_supply_is_sum_of_balances
+        require balanceOf(user, token) <= totalSupply(token);
+
+        // note: `exists_wrapper` just calls `exists`
+        assert balanceOf(user, token) > 0 => exists_wrapper(token),
+            "if a user's balance for a token is positive, the token must exist";
+    }
+
+    /******************************************************************************/
+    /*
+    rule sanity {
+        method f; env e; calldataarg args;
+
+        f(e, args);
+
+        assert false;
+    }
+    */
+
     "#};
-    let after_lexing = lexed::lexer().parse(src).unwrap();
-    // dbg!(&after_lexing);
-
+    let mut after_lexing = lexed::lexer().parse(src).unwrap();
     let len = src.chars().count();
-    let mut stream = Stream::from_iter(len..len+1, after_lexing.into_iter());
+
+    after_lexing.retain(|(tok, _span)| !matches!(tok, Token::SingleLineComment | Token::MultiLineComment));
+
+    // after_lexing
+    //     .iter()
+    //     .map(|(tok, _)| tok)
+    //     .for_each(|tok| println!("{tok:?}"));
+
+    let mut stream = Stream::from_iter(len..len + 1, after_lexing.into_iter());
     // stream.fetch_tokens().for_each(|(token, span)| println!("{token:?}"));
-    let after_parsing = lexed::intermediate_parser().parse(stream);
-    dbg!(after_parsing);
-    dbg!(&src[..147]);
+    let converter = RangeConverter::new(Rope::from_str(src));
+
+    let (after_parsing, errors) = lexed::actual_parser().parse_recovery(stream);
+    let parsed = after_parsing.unwrap();
+
+    for p in parsed
+        .into_iter()
+        .filter(|p| !matches!(p, &Ast::ParseError))
+    {
+        // let Ast::Documentation(..) = p else { continue };
+        let processed = p.process(converter.clone(), src);
+        dbg!(processed);
+    }
+    // let Ast::FunctionDecl { name, params, returns, block } = parsed[0].clone() else { panic!() };
+
+    // dbg!(params);
 }
-
-

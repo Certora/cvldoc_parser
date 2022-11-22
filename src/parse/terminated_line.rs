@@ -13,6 +13,10 @@ pub(super) trait JoinToString {
     fn join_to_string(self) -> String;
 }
 
+pub(super) trait JoinToString2 {
+    fn join_to_string(self) -> String;
+}
+
 impl<I> JoinToString for I
 where
     I: IntoIterator<Item = TerminatedLine>,
@@ -52,43 +56,28 @@ impl Terminator {
     }
 }
 
+impl From<Terminator> for &str {
+    fn from(ter: Terminator) -> Self {
+        match ter {
+            Terminator::CRLF => "\r\n",
+            Terminator::LF => "\n",
+            Terminator::CR => "\r",
+            Terminator::EOF => "",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TerminatedLine {
     pub content: Vec<char>,
     pub terminator: Terminator,
 }
 
-#[derive(Clone, Debug)]
-pub struct TerminatedString {
-    pub content: String,
-    pub terminator: Terminator,
-}
 
 impl ToString for TerminatedLine {
     fn to_string(&self) -> String {
         let term_chars: &[char] = self.terminator.as_char_slice();
         self.content.iter().chain(term_chars).collect()
-    }
-}
-
-impl TerminatedString {
-    pub(super) fn new(content: String, terminator: Terminator) -> TerminatedString {
-        TerminatedString {
-            content,
-            terminator,
-        }
-    }
-
-    pub(super) fn from_str(line: &str) -> TerminatedString {
-        use Terminator::*;
-
-        for terminator in [CRLF, LF, CR, EOF] {
-            if let Some(stripped) = line.strip_suffix(terminator.as_str()) {
-                return TerminatedString::new(stripped.to_string(), terminator);
-            }
-        }
-
-        unreachable!()
     }
 }
 
@@ -141,35 +130,3 @@ impl TerminatedLine {
     }
 }
 
-/// Iterator yielding every line in a string. The line includes newline character(s).
-pub struct LinesWithEndings<'a> {
-    input: &'a str,
-    span: Span,
-}
-
-impl<'a> LinesWithEndings<'a> {
-    pub fn from(input: &'a str, span: Span) -> LinesWithEndings<'a> {
-        LinesWithEndings { input, span }
-    }
-}
-
-impl<'a> Iterator for LinesWithEndings<'a> {
-    type Item = (&'a str, Span);
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.input.is_empty() {
-            return None;
-        }
-        let split = self
-            .input
-            .find('\n')
-            .map(|i| i + 1)
-            .unwrap_or(self.input.len());
-        let (line, rest) = self.input.split_at(split);
-        let span_of_line = self.span.start..split;
-        self.span = split..self.span.end;
-        self.input = rest;
-        Some((line, span_of_line))
-    }
-}

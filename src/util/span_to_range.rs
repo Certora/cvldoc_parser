@@ -1,3 +1,5 @@
+use std::ops::RangeBounds;
+
 use lsp_types::{Position, Range};
 use ropey::Rope;
 
@@ -58,5 +60,9 @@ impl RangeConverter {
     pub fn to_span(&self, range: Range) -> Span {
         let [start, end] = [range.start, range.end].map(|range| self.char_idx_of(range));
         start..end
+    }
+
+    pub fn byte_slice(&self, byte_range: impl RangeBounds<usize>) -> Option<&str> {
+        self.0.byte_slice(byte_range).as_str()
     }
 }
