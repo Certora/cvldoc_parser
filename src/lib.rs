@@ -2,12 +2,8 @@ pub mod diagnostics;
 mod parse;
 pub mod util;
 
-use self::parse::parser;
-use crate::util::span_to_range::RangeConverter;
-use chumsky::Parser;
 use color_eyre::eyre::{bail, eyre, Report};
 use lsp_types::Range;
-use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -43,7 +39,7 @@ pub enum AssociatedElement {
         params: Vec<Param>,
         invariant: String,
         filters: Option<String>,
-        block: Option<String>,
+        proof: Option<String>,
     },
     Function {
         name: String,
@@ -74,19 +70,19 @@ pub enum AssociatedElement {
 }
 
 impl CvlDoc {
-    pub fn from_rope(rope: Rope) -> Vec<CvlDoc> {
-        let converter = RangeConverter::new(rope.clone());
-        let builders = {
-            let src = rope.to_string();
-            let (parse, _) = parser().parse_recovery(src.as_str());
-            parse.unwrap_or_default()
-        };
+    // pub fn from_src(src: &str) -> Vec<CvlDoc> {
+    //     let converter = RangeConverter::new(rope.clone());
+    //     let builders = {
+    //         let src = rope.to_string();
+    //         let (parse, _) = parser().parse_recovery(src.as_str());
+    //         parse.unwrap_or_default()
+    //     };
 
-        builders
-            .into_iter()
-            .filter_map(|builder| builder.build(converter.clone(), rope.clone()).ok())
-            .collect()
-    }
+    //     builders
+    //         .into_iter()
+    //         .filter_map(|builder| builder.build(converter.clone(), rope.clone()).ok())
+    //         .collect()
+    // }
 }
 
 impl DocData {
@@ -293,7 +289,7 @@ impl AssociatedElement {
             | AssociatedElement::Function { block, .. }
             | AssociatedElement::Methods { block } => Some(block.as_str()),
 
-            AssociatedElement::Invariant { block, .. }
+            AssociatedElement::Invariant { proof: block, .. }
             | AssociatedElement::Ghost { block, .. }
             | AssociatedElement::GhostMapping { block, .. } => block.as_ref().map(String::as_str),
 

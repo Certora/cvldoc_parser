@@ -1,8 +1,35 @@
-use super::terminated_line::{TerminatedLine, Terminator};
-use chumsky::combinator::Repeated;
+use super::*;
 use chumsky::prelude::*;
-use chumsky::primitive::OneOf;
-use std::hash::Hash;
+
+pub const SYNC_TOKENS: [Token; 10] = [
+    Token::FreeFormSlashed,
+    Token::FreeFormStarred,
+    Token::CvlDocSlashed,
+    Token::CvlDocStarred,
+    Token::Ghost,
+    Token::Definition,
+    Token::Rule,
+    Token::Invariant,
+    Token::Methods,
+    Token::Function,
+];
+
+pub const INVARIANT_STOP_TOKENS: [Token; 14] = [
+    Token::FreeFormSlashed,
+    Token::FreeFormStarred,
+    Token::CvlDocSlashed,
+    Token::CvlDocStarred,
+    Token::Ghost,
+    Token::Definition,
+    Token::Rule,
+    Token::Invariant,
+    Token::Methods,
+    Token::Function,
+    Token::Hook,
+    Token::Axiom,
+    Token::Using,
+    Token::Hook,
+];
 
 pub(super) fn newline<'src>() -> impl Parser<char, &'src str, Error = Simple<char>> + Clone {
     static NEWLINE: &[&str; 2] = &["\r\n", "\n"];
@@ -15,86 +42,84 @@ pub(super) fn newline_or_end<'src>() -> impl Parser<char, &'src str, Error = Sim
     newline().or(end).boxed()
 }
 
-pub(super) fn line_with_terminator(
-) -> impl Parser<char, TerminatedLine, Error = Simple<char>> + Clone {
-    let terminator = choice([
-        just("\r\n").to(Terminator::CRLF).boxed(),
-        just('\n').to(Terminator::LF).boxed(),
-        just('\r').to(Terminator::CR).boxed(),
-        end().to(Terminator::EOF).boxed(),
-    ]);
+pub(super) fn balanced(l: Token, r: Token) -> impl Parser<Token, Vec<Token>, Error = Simple<Token>> + Clone {
+    let open = just(l.clone());
+    let close = just(r.clone());
 
-    take_until(terminator).map(|(content, terminator)| TerminatedLine::new(content, terminator))
+    let content = none_of([l, r]).at_least_once().boxed();
+
+    recursive(|block| {
+        let between = content.or(block).repeated().flatten();
+
+        open.chain(between).chain(close)
+    })
 }
 
-pub(super) fn horizontal_ws<'src>() -> Repeated<OneOf<char, &'src [char; 2], Simple<char>>> {
-    static HORIZONTAL_WHITESPACE: &[char; 2] = &[' ', '\t'];
-    one_of(HORIZONTAL_WHITESPACE).repeated()
+
+pub(super) fn comments() -> impl Parser<Token, Vec<Token>, Error = Simple<Token>> + Clone {
+    choice([
+        just(Token::SingleLineComment),
+        just(Token::MultiLineComment),
+    ])
+    .repeated()
 }
 
-/// a version of `take_until` that only collects the input before the terminator,
-/// and drops the output of the terminating pattern parser
-pub(super) fn take_until_without_terminator<I, O>(
-    terminator: impl Parser<I, O, Error = Simple<I>> + Clone,
-) -> impl Parser<I, Vec<I>, Error = Simple<I>> + Clone
-where
-    I: Clone + Hash + Eq,
+pub(super) fn balanced_stringified(
+    l: Token,
+    r: Token,
+) -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    balanced(l, r).map(String::from_iter)
+}
+
+pub(super) fn mapping_ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    just(Token::Mapping)
+        .ignore_then(balanced_stringified(Token::RoundOpen, Token::RoundClose))
+        .map(|content| format!("mapping{content}"))
+}
+
+pub(super) fn ident() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    select! { Token::Ident(ident) => ident }
+}
+
+pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    let call = ident()
+        .then_ignore(just(Token::Dot))
+        .then(ident())
+        .map(|(lhs, rhs)| format!("{lhs}.{rhs}"));
+
+    let array_ty = {
+        let array_subscript = balanced_stringified(Token::SquareOpen, Token::SquareClose)
+            .at_least_once()
+            .map(String::from_iter);
+        let caller = ident().or(call.clone());
+
+        caller
+            .then(array_subscript)
+            .map(|(caller, subscript)| format!("{caller}{subscript}"))
+    };
+
+    choice((array_ty, mapping_ty(), call, ident())).labelled("type")
+}
+
+pub(super) fn param_list() -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> + Clone
 {
-    let ignore_terminator = |(a, _b)| a;
-    take_until(terminator).map(ignore_terminator)
+    ty().then(ident().or_not())
+        .separated_by(just(Token::Comma))
+        .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
+        .labelled("param list")
 }
 
-pub(super) fn take_to_newline_or_end<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>> {
-    take_until(newline_or_end())
-        .map(|(mut content, line_end)| {
-            content.extend(line_end.chars());
-            content
-        })
-        .boxed()
+pub(super) fn code_block() -> impl Parser<Token, CodeChunk, Error = Simple<Token>> + Clone {
+    balanced(Token::CurlyOpen, Token::CurlyClose).map_with_span(CodeChunk::from_spanned_map)
 }
 
-pub(super) fn take_to_starred_terminator<'src>() -> BoxedParser<'src, char, Vec<char>, Simple<char>>
-{
-    take_until_without_terminator(just("*/")).boxed()
+
+pub(super) trait ParserExt<I, O, P> {
+    fn at_least_once(self) -> chumsky::combinator::Repeated<P>;
 }
 
-pub(super) fn single_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
-    just("//").then(take_to_newline_or_end()).ignored()
-}
-
-pub(super) fn multi_line_cvl_comment() -> impl Parser<char, (), Error = Simple<char>> {
-    //this is a somewhat tricky parse.
-    //we want to avoid parsing "/**" as a cvl comment, to give priority to starred cvldoc comments.
-    //however, this creates an edge case.
-    let edge_case_starter = just("/**/");
-    let multi_line_starter = just("/*").then_ignore(none_of('*'));
-
-    choice((edge_case_starter, multi_line_starter))
-        .rewind()
-        .then(take_to_starred_terminator())
-        .ignored()
-}
-
-/// when parsing the block associated with the documentation, we are dealing with
-/// a stream of tokens. tokens may be separated by some combination of whitespace or comments.
-/// since we do not go through a lexing stage that filters them out, we must assume
-/// that they may exist (possibly repeatedly) between any valid token of the associated block.
-pub(super) fn optional_sep_immediately_after_doc<'src>() -> BoxedParser<'src, char, (), Simple<char>>
-{
-    let single_line_comment_between_tokens = just("//")
-        .then(none_of('/').rewind())
-        .then(take_to_newline_or_end())
-        .ignored();
-
-    //we cannot use the usual multi-line comment parser here, since it is
-    //now allowed to have "/**" as a comment starter.
-    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
-
-    let comment = choice((
-        single_line_comment_between_tokens,
-        multi_line_comment_between_tokens,
-    ))
-    .padded();
-
-    comment.repeated().ignored().padded().boxed()
+impl<I: Clone, O, P: Parser<I, O>> ParserExt<I, O, P> for P {
+    fn at_least_once(self) -> chumsky::combinator::Repeated<P> {
+        self.repeated().at_least(1)
+    }
 }
