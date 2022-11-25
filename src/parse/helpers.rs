@@ -109,8 +109,12 @@ pub(super) fn param_list() -> impl Parser<Token, Vec<(String, Option<String>)>, 
         .labelled("param list")
 }
 
-pub(super) fn code_block() -> impl Parser<Token, CodeChunk, Error = Simple<Token>> + Clone {
-    balanced(Token::CurlyOpen, Token::CurlyClose).map_with_span(CodeChunk::from_spanned_map)
+pub(super) fn code_block() -> impl Parser<Token, Span, Error = Simple<Token>> + Clone {
+    balanced(Token::CurlyOpen, Token::CurlyClose).map_with_span(|_, span| span)
+}
+
+pub(super) fn returns_type() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    just(Token::Returns).ignore_then(ty())
 }
 
 

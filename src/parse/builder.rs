@@ -1,29 +1,133 @@
+use std::mem;
+
 use super::terminated_str::TerminatedStr;
-use super::{Ast, CodeChunk, Style};
-use crate::util::{RangeConverter, Span};
-use crate::{AssociatedElement, CvlDoc, DocData, DocumentationTag, Tag};
+use super::types::Token;
+use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
+use crate::{Ast, CvlElement, Documentation, DocumentationTag, TagKind};
 
-use color_eyre::eyre::{bail, ensure, eyre};
-use color_eyre::{Report, Result};
-use itertools::Itertools;
-use ropey::Rope;
+use chumsky::{Parser, Stream};
+use color_eyre::eyre::WrapErr;
+use color_eyre::eyre::{bail, eyre};
+use color_eyre::Result;
 
-#[derive(Debug, Clone)]
-enum Processed {
-    FreeFormComment(String),
-    Documentation(Vec<DocumentationTag>),
-    AssociatedElement(AssociatedElement),
+struct DocumentationBuilder<'src> {
+    kind: TagKind,
+    desc: Vec<TerminatedStr<'src>>,
+    span: Span,
 }
 
-pub struct Builder<'src> {
-    src: &'src str,
-    converter: RangeConverter,
+impl<'src> DocumentationBuilder<'src> {
+    fn new(entire_span: Span) -> DocumentationBuilder<'src> {
+        DocumentationBuilder {
+            kind: TagKind::default(),
+            desc: Vec::new(),
+            span: entire_span,
+        }
+    }
 }
+
+impl DocumentationTag {
+    fn from_spanned_iter<'src>(
+        input: impl IntoIterator<Item = (TerminatedStr<'src>, Span)>,
+        entire_span: Span,
+    ) -> Vec<DocumentationTag> {
+        let mut tags = Vec::new();
+
+        let mut builder = DocumentationBuilder::new(entire_span);
+
+        for (mut line, line_span) in input.into_iter() {
+            if let Some(new_tag) = Builder::tag_from_content(line.content) {
+                if builder.previous_tag_still_in_progress() {
+                    tags.push(builder.build_current());
+                }
+
+                line.content = &line.content[new_tag.len() + 1..];
+                builder.kind = new_tag;
+
+                builder.span.start = line_span.start
+            }
+
+            builder.span.end = line_span.end;
+            builder.push_line(line);
+        }
+
+        // if the body wasn't empty, we are guaranteed to have
+        // an in-progress tag that should be pushed here.
+        if builder.previous_tag_still_in_progress() {
+            tags.push(builder.build_current());
+        }
+
+        tags
+    }
+}
+
+impl<'a> DocumentationBuilder<'a> {
+    fn previous_tag_still_in_progress(&self) -> bool {
+        !self.desc.is_empty()
+    }
+
+    fn push_line(&mut self, line: TerminatedStr<'a>) {
+        self.desc.push(line)
+    }
+
+    fn build_current(&mut self) -> DocumentationTag {
+        let desc = std::mem::take(&mut self.desc);
+
+        DocumentationTag {
+            kind: self.kind.clone(),
+            description: String::from_iter(desc),
+            span: self.span.clone(),
+        }
+    }
+}
+
+trait ToSpan {
+    fn to_span(&self) -> Span;
+}
+
+impl ToSpan for Span {
+    fn to_span(&self) -> Span {
+        self.clone()
+    }
+}
+
+enum DocOrAst {
+    Doc(Documentation),
+    Ast(Ast),
+}
+
+pub struct Builder<'src>(&'src str);
 
 impl<'src> Builder<'src> {
     pub fn new(src: &'src str) -> Self {
-        let converter = RangeConverter::new(Rope::from_str(src));
-        Builder { src, converter }
+        Builder(src)
+    }
+
+    pub fn lex(&self) -> Result<Vec<(Token, Span)>> {
+        let mut lexed = cvl_lexer()
+            .parse(self.0)
+            .map_err(|_| eyre!("lexing failed"))?;
+        // println!("lexing before dropping whitespace: {lexed:?}");
+        lexed.retain(|(tok, _)| !matches!(tok, Token::SingleLineComment | Token::MultiLineComment));
+        // println!("lexing after dropping whitespace: {lexed:?}");
+
+        Ok(lexed)
+    }
+
+    fn parse(&self, lexed: Vec<(Token, Span)>) -> Result<Vec<(Intermediate, Span)>> {
+        let end_span = {
+            let len = self.0.chars().count();
+            len..len + 1
+        };
+        let stream = Stream::from_iter(end_span, lexed.into_iter());
+        let (parsing_results, _errors) = cvl_parser().parse_recovery(stream);
+        parsing_results.ok_or_else(|| eyre!("parsing failed"))
+    }
+
+    pub fn build(self) -> Vec<CvlElement> {
+        let lexed = self.lex().unwrap();
+        let parsed = self.parse(lexed).unwrap();
+        self.output_cvl_elements(parsed)
     }
 
     const fn chars_to_trim<'a>(style: Style) -> &'a [char] {
@@ -33,54 +137,20 @@ impl<'src> Builder<'src> {
         }
     }
 
-    fn chunk(&self, code_chunk: &CodeChunk) -> String {
-        let span = code_chunk.0.clone();
-        self.src.get(span).unwrap().to_string()
+    //this panics, because a failure is an unrecoverable logic error
+    fn slice(&self, s: impl Into<Span>) -> &str {
+        let span: Span = s.into();
+        self.0
+            .get(span.clone())
+            .unwrap_or_else(|| panic!("{:?}: not in source bounds", span))
     }
 
-    fn parse_doc_tags(
-        &self,
-        input: impl IntoIterator<Item = (TerminatedStr<'src>, Span)>,
-    ) -> Vec<DocumentationTag> {
-        let mut tags = Vec::new();
-
-        let mut cur_tag = Tag::default();
-        let mut cur_desc: Vec<TerminatedStr> = Vec::new();
-        let mut cur_span = None;
-
-        for (mut line, line_span) in input.into_iter() {
-            if let Some(new_tag) = Builder::tag_from_content(line.content) {
-                if !cur_desc.is_empty() {
-                    let desc = std::mem::take(&mut cur_desc);
-                    let doc_tag = DocumentationTag::new(cur_tag, String::from_iter(desc), cur_span);
-
-                    tags.push(doc_tag);
-                }
-
-                line.content = &line.content[new_tag.len() + 1..];
-                cur_tag = new_tag;
-                cur_span = {
-                    let start = line_span.start;
-                    let span = start..start + cur_tag.len();
-                    Some(self.converter.to_range(span))
-                };
-            }
-
-            cur_desc.push(line);
-        }
-
-        // this check deals with the cases where the body was empty,
-        // or contained only whitespace lines.
-        // otherwise we are guaranteed to have an in-progress tag that should be pushed.
-        if !cur_desc.is_empty() {
-            let doc_tag = DocumentationTag::new(cur_tag, String::from_iter(cur_desc), cur_span);
-            tags.push(doc_tag);
-        }
-
-        tags
+    //this panics, because a failure is an unrecoverable logic error
+    fn owned_slice(&self, s: impl Into<Span>) -> String {
+        self.slice(s).to_string()
     }
 
-    fn tag_from_content(content: &str) -> Option<Tag> {
+    fn tag_from_content(content: &str) -> Option<TagKind> {
         if content.starts_with('@') {
             let tag_end = content
                 .find(|c: char| c.is_ascii_whitespace())
@@ -93,137 +163,178 @@ impl<'src> Builder<'src> {
         }
     }
 
-    pub fn build(&self, parsing_results: Vec<(Ast, Span)>) -> Vec<CvlDoc> {
-        let processed_spanned = parsing_results
-            .into_iter()
-            .map(|spanned_ast| {
-                let span = spanned_ast.1.clone();
-                let processed = self.process(spanned_ast);
-                (processed, span)
-            })
-            .collect_vec();
+    fn output_cvl_elements(&self, parsing_results: Vec<(Intermediate, Span)>) -> Vec<CvlElement> {
+        let mut current_doc = None;
 
-        let mut cvl_docs = Vec::with_capacity(processed_spanned.len());
-        
+        let make_cvl_element = |ast: Ast, span: Span, doc: Option<Documentation>| {
+            let raw = self.owned_slice(span.clone());
+
+            CvlElement {
+                raw,
+                span,
+                doc,
+                ast,
+            }
+        };
+
+        parsing_results
+            .into_iter()
+            .filter_map(|spanned_intermediate| self.process_intermediate(spanned_intermediate).ok())
+            .filter_map(|(doc_or_ast, span)| match doc_or_ast {
+                DocOrAst::Ast(ast) => {
+                    let doc = if matches!(ast, Ast::FreeFormComment(..)) {
+                        // assert!(current_doc.is_none(), "documentation followed by freeform");
+                        None
+                    } else {
+                        mem::take(&mut current_doc)
+                    };
+
+                    let cvl_element = CvlElement {
+                        raw: self.owned_slice(span.clone()),
+                        span,
+                        doc,
+                        ast,
+                    };
+                    Some(cvl_element)
+                }
+                DocOrAst::Ast(ast) => {
+                    let doc = std::mem::take(&mut current_doc);
+                    let cvl_element = make_cvl_element(ast, span, doc);
+                    Some(cvl_element)
+                }
+                DocOrAst::Doc(doc) => {
+                    // assert!(
+                    //     current_doc.is_none(),
+                    //     "documentation followed by documentation"
+                    // );
+                    current_doc = Some(doc);
+                    None
+                }
+            })
+            .collect()
     }
 
-    fn process(&self, (ast, span): (Ast, Span)) -> Processed {
-        let input = self.src.get(span).unwrap();
+    fn process_intermediate(
+        &self,
+        (intermediate, span): (Intermediate, Span),
+    ) -> Result<(DocOrAst, Span)> {
+        let process_result = match intermediate {
+            Intermediate::FreeFormComment(style, span) => {
+                let input = self.slice(span.clone());
+                let ter_lines = ContentLines::new(input, span, Builder::chars_to_trim(style))
+                    .map(|(ter_line, _span)| ter_line);
+                let text = String::from_iter(ter_lines);
 
-        match ast {
-            Ast::FreeFormComment(style, span) => {
-                let text = ContentLines::new(input, span.clone(), Builder::chars_to_trim(style))
-                    .into_iter()
-                    .map(|(terminated_line, _)| terminated_line.to_string())
-                    .collect();
-
-                Processed::FreeFormComment(text)
+                let ast = Ast::FreeFormComment(text);
+                DocOrAst::Ast(ast)
             }
-            Ast::Documentation(style, span) => {
+            Intermediate::Documentation(style, span) => {
+                let input = self.slice(span.clone());
                 let body = ContentLines::new(input, span.clone(), Builder::chars_to_trim(style));
-                let doc_tags = self.parse_doc_tags(body);
-                Processed::Documentation(doc_tags)
+
+                let doc = Documentation {
+                    tags: DocumentationTag::from_spanned_iter(body, span),
+                    raw: input.to_string(),
+                };
+                DocOrAst::Doc(doc)
             }
-            Ast::Methods { block } => {
-                let block = self.chunk(&block);
-                let assoc = AssociatedElement::Methods { block };
-                Processed::AssociatedElement(assoc)
+            Intermediate::Methods(block) => {
+                let block = self.trimmed_block_slice(block).to_string();
+
+                let ast = Ast::Methods { block };
+                DocOrAst::Ast(ast)
             }
-            Ast::Function {
+            Intermediate::Function {
                 name,
                 params,
                 returns,
                 block,
             } => {
-                let block = self.chunk(&block);
-                let assoc = AssociatedElement::Function {
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::Function {
                     name,
                     params,
                     returns,
                     block,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-            Ast::ParseError => panic!("parse errors are not parsed"),
-            Ast::GhostMapping {
+            Intermediate::GhostMapping {
                 mapping,
                 name,
                 block,
             } => {
-                let block = block.map(|c| self.chunk(&c));
-                let assoc = AssociatedElement::GhostMapping {
+                let block = block.map(|c| self.owned_slice(c));
+                let ast = Ast::GhostMapping {
                     name,
                     mapping,
                     block,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-            Ast::Ghost {
+            Intermediate::Ghost {
                 name,
                 ty_list,
                 returns,
                 block,
             } => {
-                let block = block.map(|c| self.chunk(&c));
-                let assoc = AssociatedElement::Ghost {
+                let block = block.map(|c| self.owned_slice(c));
+                let ast = Ast::Ghost {
                     name,
                     ty_list,
                     returns,
                     block,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-            Ast::Rule {
+            Intermediate::Rule {
                 name,
                 params,
                 filters,
                 block,
             } => {
-                let block = self.chunk(&block);
-                let filters = filters.map(|c| self.chunk(&c));
-                let assoc = AssociatedElement::Rule {
+                let block = self.trimmed_block_slice(block).to_string();
+                let filters = filters.map(|c| self.owned_slice(c));
+
+                let ast = Ast::Rule {
                     name,
                     params,
                     filters,
                     block,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-            Ast::Definition {
+            Intermediate::Definition {
                 name,
                 params,
                 returns,
                 definition,
             } => {
-                let definition = definition
-                    .trim_start()
-                    .trim_end_matches(|c: char| c.is_ascii_whitespace() || c == ';')
-                    .to_string();
-                let assoc = AssociatedElement::Definition {
+                let ast = Ast::Definition {
                     name,
                     params,
                     returns,
                     definition,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-            Ast::Invariant {
+            Intermediate::Invariant {
                 name,
                 params,
                 invariant,
                 filters,
                 proof,
             } => {
-                let invariant = self.chunk(&invariant);
-                let filters = filters.map(|c| self.chunk(&c));
-                let proof = proof.map(|c| self.chunk(&c));
+                let invariant = self.owned_slice(invariant);
+                let filters = filters.map(|c| self.owned_slice(c));
+                let proof = proof.map(|c| self.trimmed_block_slice(c).to_string());
 
-                let assoc = AssociatedElement::Invariant {
+                let ast = Ast::Invariant {
                     name,
                     params,
                     invariant,
@@ -231,21 +342,35 @@ impl<'src> Builder<'src> {
                     proof,
                 };
 
-                Processed::AssociatedElement(assoc)
+                DocOrAst::Ast(ast)
             }
-        }
+            Intermediate::ParseError => bail!("parse errors are not parsed"),
+        };
+
+        Ok((process_result, span))
+    }
+
+    fn trimmed_block_slice(&self, s: impl Into<Span>) -> &str {
+        let slice = self.slice(s);
+        let slice = slice.strip_prefix('{').unwrap_or(slice);
+        let slice = slice.strip_suffix('}').unwrap_or(slice);
+        slice.trim()
     }
 }
 
 // preserves newlines, strips prefixes, updates span for each line
-pub struct ContentLines<'a, 'b> {
-    input: &'a str,
+pub struct ContentLines<'src, 'trim> {
+    input: &'src str,
     span: Span,
-    chars_to_trim: &'b [char],
+    chars_to_trim: &'trim [char],
 }
 
-impl<'a, 'b> ContentLines<'a, 'b> {
-    pub fn new(input: &'a str, span: Span, chars_to_trim: &'b [char]) -> ContentLines<'a, 'b> {
+impl<'src, 'trim> ContentLines<'src, 'trim> {
+    pub fn new(
+        input: &'src str,
+        span: Span,
+        chars_to_trim: &'trim [char],
+    ) -> ContentLines<'src, 'trim> {
         ContentLines {
             input,
             span,
@@ -282,7 +407,7 @@ impl<'a, 'b> Iterator for ContentLines<'a, 'b> {
         self.span.start = cur_span_end;
 
         {
-            //potentially skipping first and last lines for multiline starred comments
+            //potentially skip first and last lines for multiline starred comments
             let trimmed = line.trim();
             if trimmed == "/**" || trimmed == "*/" {
                 return self.next();

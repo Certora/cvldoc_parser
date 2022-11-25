@@ -1,4 +1,4 @@
-pub mod builder;
+mod builder;
 mod helpers;
 mod terminated_str;
 pub mod types;
@@ -6,15 +6,14 @@ pub mod types;
 use crate::util::Span;
 use chumsky::prelude::*;
 use helpers::*;
-use itertools::Itertools;
 use std::ops::Not;
-use types::{Ast, CodeChunk, Style, Token};
+use types::{Intermediate, Style, Token};
 
 // fn unpack_tuple4<A, B, C, D>((((a, b), c), d): (((A, B), C), D)) -> (A, B, C, D) {
 //     (a, b, c, d)
 // }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
+pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let cvldoc_slashed_line = just("///")
         .then_ignore(none_of('/').rewind())
         .then(take_until(newline_or_end()));
@@ -22,11 +21,16 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .at_least_once()
         .to(Token::CvlDocSlashed)
         .boxed();
-    let cvldoc_starred = just("/**")
-        .then_ignore(none_of('*').rewind())
-        .then(take_until(just("*/")))
-        .to(Token::CvlDocStarred)
-        .boxed();
+    let cvldoc_starred = {
+        //avoids the edge case of "/**/"
+        let prefix = just("/**").then(none_of("*/"));
+
+        prefix
+            .rewind()
+            .then(take_until(just("*/")))
+            .to(Token::CvlDocStarred)
+            .boxed()
+    };
     let freeform_slashed_line = just("////").then(take_until(newline_or_end()));
     let freeform_slashed = freeform_slashed_line
         .at_least_once()
@@ -72,10 +76,26 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .then(none_of('/'))
         .then(take_until(newline_or_end()))
         .to(Token::SingleLineComment);
-    let multi_line_comment = just("/*")
-        .then(none_of('*'))
-        .then(take_until(just("*/")))
-        .to(Token::MultiLineComment);
+    let multi_line_comment = {
+        // let edge_case = just("/**/").ignored();
+
+        // let prefix = just("/*").then(none_of('*')).ignored().rewind();
+        let proper_comment = recursive(|proper_comment| {
+            let content = just("/*").or(just("*/")).not().ignored();
+
+            content
+                .or(proper_comment)
+                .repeated()
+                .delimited_by(just("/*"), just("*/"))
+                .ignored()
+        });
+
+        proper_comment.to(Token::MultiLineComment)
+
+        // edge_case
+        //     .or(prefix.then_ignore(proper_comment))
+        //     .to(Token::MultiLineComment)
+    };
     let comment = single_line_comment.or(multi_line_comment).boxed();
 
     let num = {
@@ -133,29 +153,11 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     .repeated()
 }
 
-pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
-    let returns_type = just(Token::Returns).ignore_then(ty());
-
-    let freeform = select! {
-        Token::FreeFormSlashed => Style::Slashed,
-        Token::FreeFormStarred => Style::Starred,
-    }
-    .map_with_span(Ast::FreeFormComment)
-    .labelled("freeform")
-    .boxed();
-
-    let cvl_doc = select! {
-        Token::CvlDocSlashed => Style::Slashed,
-        Token::CvlDocStarred => Style::Starred,
-    }
-    .map_with_span(Ast::Documentation)
-    .labelled("documentation")
-    .boxed();
-
-    let param_filters = just(Token::Filtered).ignore_then(code_block());
-
+fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     let rule_decl = {
         let optional_params = param_list().or_not().map(Option::unwrap_or_default);
+
+        let param_filters = just(Token::Filtered).ignore_then(code_block());
         let optional_filter = param_filters.or_not();
 
         just(Token::Rule)
@@ -163,7 +165,7 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
             .then(optional_params)
             .then(optional_filter)
             .then(code_block())
-            .map(|(((name, params), filters), block)| Ast::Rule {
+            .map(|(((name, params), filters), block)| Intermediate::Rule {
                 name,
                 params,
                 filters,
@@ -173,25 +175,27 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
             .boxed()
     };
     let function_decl = {
-        let optional_returns = returns_type.clone().or_not();
+        let optional_returns = returns_type().or_not();
         just(Token::Function)
             .ignore_then(ident())
             .then(param_list())
             .then(optional_returns)
             .then(code_block())
-            .map(|(((name, params), returns), block)| Ast::Function {
-                name,
-                params,
-                returns,
-                block,
-            })
+            .map(
+                |(((name, params), returns), block)| Intermediate::Function {
+                    name,
+                    params,
+                    returns,
+                    block,
+                },
+            )
             .labelled("function declaration")
             .boxed()
     };
 
     let methods_decl = just(Token::Methods)
         .ignore_then(code_block())
-        .map(|block| Ast::Methods { block })
+        .map(Intermediate::Methods)
         .labelled("methods declaration")
         .boxed();
 
@@ -216,13 +220,13 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
             none_of(stop_tokens)
                 .at_least_once()
                 .then_ignore(stop.rewind())
-                .map_with_span(CodeChunk::from_spanned_map)
+                .map_with_span(|_, span| span)
         };
 
         //in correct code, a param filters block must be balanced
         let filtered_block = just(Token::Filtered)
             .then(balanced(Token::CurlyOpen, Token::CurlyClose))
-            .map_with_span(CodeChunk::from_spanned_map);
+            .map_with_span(|_, span| span);
 
         //in correct code, a proof block must be balanced
         let invariant_proof = code_block();
@@ -234,7 +238,7 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
             .then(filtered_block.or_not())
             .then(invariant_proof.or_not())
             .map(
-                |((((name, params), invariant), filters), proof)| Ast::Invariant {
+                |((((name, params), invariant), filters), proof)| Intermediate::Invariant {
                     name,
                     params,
                     invariant,
@@ -242,6 +246,7 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
                     proof,
                 },
             )
+            .labelled("invariant declaration")
             .boxed()
     };
 
@@ -254,7 +259,7 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
             .ignore_then(ty())
             .then(ident())
             .then(optional_code_block.clone())
-            .map(|((mapping, name), block)| Ast::GhostMapping {
+            .map(|((mapping, name), block)| Intermediate::GhostMapping {
                 mapping,
                 name,
                 block,
@@ -264,9 +269,9 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
         let without_mapping = just(Token::Ghost)
             .ignore_then(ident())
             .then(unnamed_param_list)
-            .then(returns_type.clone())
+            .then(returns_type())
             .then(optional_code_block)
-            .map(|(((name, ty_list), returns), block)| Ast::Ghost {
+            .map(|(((name, ty_list), returns), block)| Intermediate::Ghost {
                 name,
                 ty_list,
                 returns,
@@ -280,29 +285,29 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
     let definition_decl = {
         let rhs = none_of(Token::Semicolon)
             .at_least_once()
-            .chain(just(Token::Semicolon))
+            .then_ignore(just(Token::Semicolon))
             .map(String::from_iter);
 
         just(Token::Definition)
             .ignore_then(ident())
             .then(param_list())
-            .then(returns_type)
+            .then(returns_type())
             .then_ignore(just(Token::Equals))
             .then(rhs)
-            .map(|(((name, params), returns), definition)| Ast::Definition {
-                name,
-                params,
-                returns,
-                definition,
-            })
-            .recover_with(skip_until(SYNC_TOKENS, |_| Ast::ParseError))
+            .map(
+                |(((name, params), returns), definition)| Intermediate::Definition {
+                    name,
+                    params,
+                    returns,
+                    definition,
+                },
+            )
+            .recover_with(skip_until(SYNC_TOKENS, |_| Intermediate::ParseError))
             .labelled("definition declaration")
             .boxed()
     };
 
     choice([
-        freeform,
-        cvl_doc,
         rule_decl,
         function_decl,
         methods_decl,
@@ -310,9 +315,31 @@ pub fn parser() -> impl Parser<Token, Vec<(Ast, Span)>, Error = Simple<Token>> {
         ghost_decl,
         definition_decl,
     ])
-    .recover_with(skip_until(SYNC_TOKENS, |_| Ast::ParseError))
-    .map_with_span(|ast, span| (ast, span))
-    .repeated()
+}
+
+fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<Token>> {
+    let freeform = select! {
+        Token::FreeFormSlashed => Style::Slashed,
+        Token::FreeFormStarred => Style::Starred,
+    }
+    .map_with_span(Intermediate::FreeFormComment)
+    .labelled("freeform")
+    .boxed();
+
+    let cvl_doc = select! {
+        Token::CvlDocSlashed => Style::Slashed,
+        Token::CvlDocStarred => Style::Starred,
+    }
+    .map_with_span(Intermediate::Documentation)
+    .labelled("documentation")
+    .boxed();
+
+    let decl = decl_parser().boxed();
+
+    choice([freeform, cvl_doc, decl])
+        .recover_with(skip_until(SYNC_TOKENS, |_| Intermediate::ParseError))
+        .map_with_span(|intermediate, span| (intermediate, span))
+        .repeated()
 }
 
 #[cfg(test)]

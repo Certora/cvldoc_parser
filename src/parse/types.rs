@@ -81,35 +81,32 @@ impl FromIterator<Token> for String {
 }
 
 #[derive(Debug, Clone)]
-pub enum Ast {
+pub enum Intermediate {
     FreeFormComment(Style, Span),
     Documentation(Style, Span),
-    Methods {
-        block: CodeChunk,
-    },
+    Methods(Span),
     Function {
         name: String,
         params: Vec<(String, Option<String>)>,
         returns: Option<String>,
-        block: CodeChunk,
+        block: Span,
     },
-    ParseError,
     GhostMapping {
-        mapping: String,
         name: String,
-        block: Option<CodeChunk>,
+        mapping: String,
+        block: Option<Span>,
     },
     Ghost {
         name: String,
         ty_list: Vec<String>,
         returns: String,
-        block: Option<CodeChunk>,
+        block: Option<Span>,
     },
     Rule {
         name: String,
         params: Vec<(String, Option<String>)>,
-        filters: Option<CodeChunk>,
-        block: CodeChunk,
+        filters: Option<Span>,
+        block: Span,
     },
     Definition {
         name: String,
@@ -120,27 +117,15 @@ pub enum Ast {
     Invariant {
         name: String,
         params: Vec<(String, Option<String>)>,
-        invariant: CodeChunk,
-        filters: Option<CodeChunk>,
-        proof: Option<CodeChunk>,
+        invariant: Span,
+        filters: Option<Span>,
+        proof: Option<Span>,
     },
+    ParseError,
 }
 
 #[derive(Debug, Clone)]
 pub enum Style {
     Slashed,
     Starred,
-}
-
-#[derive(Debug, Clone)]
-pub struct CodeChunk(pub Span);
-
-impl CodeChunk {
-    pub fn to_str<'a>(&self, src: &'a str) -> Option<&'a str> {
-        src.get(self.0.clone())
-    }
-
-    pub fn from_spanned_map<T>(_: T, span: Span) -> CodeChunk {
-        CodeChunk(span)
-    }
 }
