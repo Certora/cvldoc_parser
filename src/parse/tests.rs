@@ -1,24 +1,10 @@
-use crate::parse::builder::Builder;
-use crate::parse::cvl_parser;
-
-use crate::parse::types::{Intermediate, Token};
-use crate::util::RangeConverter;
-use crate::{Ast, CvlElement, Documentation, Param, TagKind};
+use super::builder::Builder;
+use super::Token;
+use crate::{util::SingleElement, Ast, Param, TagKind};
 use assert_matches::assert_matches;
-use chumsky::{Parser, Stream};
-use color_eyre::eyre::bail;
-use color_eyre::Report;
-use color_eyre::Result;
 use indoc::indoc;
-use itertools::{ExactlyOneError, Itertools};
-use lsp_types::{Position, Range};
-use ropey::Rope;
-use std::fmt::Debug;
+use itertools::Itertools;
 use std::iter::zip;
-use std::ops::Not;
-use std::path::Path;
-
-use super::builder;
 
 macro_rules! param {
     ($ty: expr) => {
@@ -27,26 +13,6 @@ macro_rules! param {
     ($ty:expr, $name:expr) => {
         ($ty.to_string(), Some($name.to_string()))
     };
-}
-
-trait SingleElement {
-    type Item;
-    fn single_element(self) -> Self::Item;
-}
-
-impl<O, T> SingleElement for T
-where
-    O: Debug,
-    T: IntoIterator<Item = O>,
-    T::IntoIter: Debug,
-{
-    type Item = O;
-
-    fn single_element(self) -> Self::Item {
-        self.into_iter()
-            .exactly_one()
-            .expect("must have exactly one element")
-    }
 }
 
 fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
@@ -127,9 +93,7 @@ fn doc_tag_kinds() {
 
     let parsed = Builder::new(src).build();
 
-    let tags = parsed[0].doc_tags().unwrap();
-
-    let tag_kinds = tags.iter().cloned().map(|doc_tag| doc_tag.kind);
+    let tag_kinds = parsed[0].doc.iter().cloned().map(|doc_tag| doc_tag.kind);
     let expected = [
         TagKind::Notice,
         TagKind::Title,
@@ -294,7 +258,7 @@ fn commented_out_doc_followed_by_non_commented() {
     let parsed = Builder::new(src).build();
 
     let cvl_element = parsed.single_element();
-    let element_doc = cvl_element.doc_tags().unwrap().single_element();
+    let element_doc = cvl_element.doc.single_element();
 
     assert_eq!(element_doc.kind, TagKind::Title);
     assert_eq!(cvl_element.ast.name(), Some("bar"));
@@ -386,7 +350,7 @@ fn rules_without_parameters() {
     let parsed = Builder::new(src).build();
     let element = parsed.single_element();
 
-    assert!(element.doc.is_some());
+    assert!(!element.doc.is_empty());
     assert_matches!(element.ast, Ast::Rule { .. });
 }
 
@@ -536,7 +500,7 @@ fn span_contains_both_doc_and_associated_element() {
                 "An account balance may only be reduced by the holder or a holder-approved agent";
         }
     "#};
-    
+
     let parsed = Builder::new(src).build();
     let element = parsed.single_element();
 

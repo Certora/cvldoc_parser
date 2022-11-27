@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
 use crate::util::Span;
 use itertools::Itertools;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {

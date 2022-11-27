@@ -1,12 +1,12 @@
 use std::mem;
+use std::sync::Arc;
 
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
 use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
-use crate::{Ast, CvlElement, Documentation, DocumentationTag, TagKind};
+use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 
 use chumsky::{Parser, Stream};
-use color_eyre::eyre::WrapErr;
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
 
@@ -92,7 +92,7 @@ impl ToSpan for Span {
 }
 
 enum DocOrAst {
-    Doc(Documentation),
+    Doc(Vec<DocumentationTag>),
     Ast(Ast),
 }
 
@@ -164,18 +164,8 @@ impl<'src> Builder<'src> {
     }
 
     fn output_cvl_elements(&self, parsing_results: Vec<(Intermediate, Span)>) -> Vec<CvlElement> {
-        let mut current_doc = None;
-
-        let make_cvl_element = |ast: Ast, span: Span, doc: Option<Documentation>| {
-            let raw = self.owned_slice(span.clone());
-
-            CvlElement {
-                raw,
-                span,
-                doc,
-                ast,
-            }
-        };
+        let mut current_doc = Vec::new();
+        let src_ref = Arc::from(self.0);
 
         parsing_results
             .into_iter()
@@ -184,22 +174,17 @@ impl<'src> Builder<'src> {
                 DocOrAst::Ast(ast) => {
                     let doc = if matches!(ast, Ast::FreeFormComment(..)) {
                         // assert!(current_doc.is_none(), "documentation followed by freeform");
-                        None
+                        Vec::new()
                     } else {
                         mem::take(&mut current_doc)
                     };
 
                     let cvl_element = CvlElement {
-                        raw: self.owned_slice(span.clone()),
                         span,
                         doc,
                         ast,
+                        src: Arc::clone(&src_ref),
                     };
-                    Some(cvl_element)
-                }
-                DocOrAst::Ast(ast) => {
-                    let doc = std::mem::take(&mut current_doc);
-                    let cvl_element = make_cvl_element(ast, span, doc);
                     Some(cvl_element)
                 }
                 DocOrAst::Doc(doc) => {
@@ -207,7 +192,7 @@ impl<'src> Builder<'src> {
                     //     current_doc.is_none(),
                     //     "documentation followed by documentation"
                     // );
-                    current_doc = Some(doc);
+                    current_doc = doc;
                     None
                 }
             })
@@ -232,10 +217,7 @@ impl<'src> Builder<'src> {
                 let input = self.slice(span.clone());
                 let body = ContentLines::new(input, span.clone(), Builder::chars_to_trim(style));
 
-                let doc = Documentation {
-                    tags: DocumentationTag::from_spanned_iter(body, span),
-                    raw: input.to_string(),
-                };
+                let doc = DocumentationTag::from_spanned_iter(body, span);
                 DocOrAst::Doc(doc)
             }
             Intermediate::Methods(block) => {

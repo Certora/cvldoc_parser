@@ -51,8 +51,10 @@ impl ToString for TerminatedStr<'_> {
 impl<'a> FromIterator<TerminatedStr<'a>> for String {
     fn from_iter<T: IntoIterator<Item = TerminatedStr<'a>>>(iter: T) -> Self {
         let mut joined = String::new();
-        let ter_lines = iter.into_iter().skip_while(|ter_line| ter_line.content.is_empty());
-        
+        let ter_lines = iter
+            .into_iter()
+            .skip_while(|ter_line| ter_line.content.is_empty());
+
         for ter_line in ter_lines {
             joined.push_str(ter_line.content);
             joined.push_str(ter_line.ter.as_str());
@@ -65,4 +67,3 @@ impl<'a> FromIterator<TerminatedStr<'a>> for String {
         joined
     }
 }
-

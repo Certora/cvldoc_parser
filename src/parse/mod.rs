@@ -1,4 +1,4 @@
-mod builder;
+pub mod builder;
 mod helpers;
 mod terminated_str;
 pub mod types;

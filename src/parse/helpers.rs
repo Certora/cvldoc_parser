@@ -42,7 +42,10 @@ pub(super) fn newline_or_end<'src>() -> impl Parser<char, &'src str, Error = Sim
     newline().or(end).boxed()
 }
 
-pub(super) fn balanced(l: Token, r: Token) -> impl Parser<Token, Vec<Token>, Error = Simple<Token>> + Clone {
+pub(super) fn balanced(
+    l: Token,
+    r: Token,
+) -> impl Parser<Token, Vec<Token>, Error = Simple<Token>> + Clone {
     let open = just(l.clone());
     let close = just(r.clone());
 
@@ -53,15 +56,6 @@ pub(super) fn balanced(l: Token, r: Token) -> impl Parser<Token, Vec<Token>, Err
 
         open.chain(between).chain(close)
     })
-}
-
-
-pub(super) fn comments() -> impl Parser<Token, Vec<Token>, Error = Simple<Token>> + Clone {
-    choice([
-        just(Token::SingleLineComment),
-        just(Token::MultiLineComment),
-    ])
-    .repeated()
 }
 
 pub(super) fn balanced_stringified(
@@ -101,8 +95,8 @@ pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone 
     choice((array_ty, mapping_ty(), call, ident())).labelled("type")
 }
 
-pub(super) fn param_list() -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> + Clone
-{
+pub(super) fn param_list(
+) -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> + Clone {
     ty().then(ident().or_not())
         .separated_by(just(Token::Comma))
         .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
@@ -116,7 +110,6 @@ pub(super) fn code_block() -> impl Parser<Token, Span, Error = Simple<Token>> + 
 pub(super) fn returns_type() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
     just(Token::Returns).ignore_then(ty())
 }
-
 
 pub(super) trait ParserExt<I, O, P> {
     fn at_least_once(self) -> chumsky::combinator::Repeated<P>;

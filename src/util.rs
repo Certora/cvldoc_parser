@@ -1,9 +1,10 @@
-use std::ops::RangeBounds;
-
 use color_eyre::eyre::ContextCompat;
 use color_eyre::Result;
+use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
+use std::fmt::Debug;
+use std::ops::RangeBounds;
 
 pub trait SpannedValue {
     fn span(&self) -> Span;
@@ -67,5 +68,25 @@ impl RangeConverter {
     pub fn slice(&self, char_range: impl RangeBounds<usize>) -> Result<String> {
         let rope_slice = self.0.get_slice(char_range).wrap_err("not in range")?;
         Ok(rope_slice.to_string())
+    }
+}
+
+pub trait SingleElement {
+    type Item;
+    fn single_element(self) -> Self::Item;
+}
+
+impl<O, T> SingleElement for T
+where
+    O: Debug,
+    T: IntoIterator<Item = O>,
+    T::IntoIter: Debug,
+{
+    type Item = O;
+
+    fn single_element(self) -> Self::Item {
+        self.into_iter()
+            .exactly_one()
+            .expect("must have exactly one element")
     }
 }

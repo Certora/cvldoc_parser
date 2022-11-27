@@ -1,31 +1,17 @@
 // pub mod diagnostics;
-mod parse;
+pub mod parse;
 pub mod util;
 
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 use util::Span;
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CvlElement {
-    pub doc: Option<Documentation>,
+    pub doc: Vec<DocumentationTag>,
     pub ast: Ast,
     span: Span,
-    raw: String,
-}
-
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Documentation {
-    pub tags: Vec<DocumentationTag>,
-    raw: String,
-}
-
-impl std::fmt::Debug for Documentation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Documentation")
-            .field("tags", &self.tags)
-            .finish()
-    }
+    src: Arc<str>,
 }
 
 impl std::fmt::Debug for CvlElement {
@@ -85,14 +71,12 @@ pub enum Ast {
 
 impl CvlElement {
     pub fn title(&self) -> Option<String> {
-        let from_title_tag = self.doc_tags().and_then(|tags| {
-            tags.iter().find_map(|tag| {
-                if tag.kind == TagKind::Title {
-                    Some(tag.description.clone())
-                } else {
-                    None
-                }
-            })
+        let from_title_tag = self.doc.iter().find_map(|tag| {
+            if tag.kind == TagKind::Title {
+                Some(tag.description.clone())
+            } else {
+                None
+            }
         });
         let from_name = || self.ast.name().map(String::from);
 
@@ -101,26 +85,17 @@ impl CvlElement {
 
     pub fn span(&self) -> Span {
         let start = self
-            .doc_tags()
-            .and_then(|tags| tags.first())
+            .doc
+            .first()
             .map(|tag| tag.span.start)
             .unwrap_or(self.span.start);
         let end = self.span.end;
+
         start..end
     }
 
-    pub fn doc_tags(&self) -> Option<&[DocumentationTag]> {
-        self.doc.as_ref().map(|doc| doc.tags.as_slice())
-    }
-
-    pub fn raw(&self) -> String {
-        if let Some(doc) = self.doc.as_ref() {
-            let mut raw = doc.raw.clone();
-            raw.push_str(&self.raw);
-            raw
-        } else {
-            self.raw.clone()
-        }
+    pub fn raw(&self) -> &str {
+        &self.src[self.span()]
     }
 }
 
