@@ -1,9 +1,10 @@
-// pub mod diagnostics;
+pub mod diagnostics;
 pub mod parse;
 pub mod util;
 
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, sync::Arc};
+use std::fmt::{Debug, Display};
+use std::sync::Arc;
 use util::Span;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -14,7 +15,7 @@ pub struct CvlElement {
     src: Arc<str>,
 }
 
-impl std::fmt::Debug for CvlElement {
+impl Debug for CvlElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CvlElement")
             .field("doc", &self.doc)
@@ -57,12 +58,12 @@ pub enum Ast {
         name: String,
         ty_list: Vec<String>,
         returns: String,
-        block: Option<String>,
+        axioms: Option<String>,
     },
     GhostMapping {
         name: String,
         mapping: String,
-        block: Option<String>,
+        axioms: Option<String>,
     },
     Methods {
         block: String,
@@ -165,13 +166,6 @@ impl Display for TagKind {
 }
 
 impl TagKind {
-    pub fn unexpected_tag(&self) -> Option<&str> {
-        match self {
-            TagKind::Unexpected(s) => Some(s.as_str()),
-            _ => None,
-        }
-    }
-
     pub(crate) fn len(&self) -> usize {
         let len_without_ampersat = match self {
             TagKind::Dev => 3,
@@ -267,8 +261,8 @@ impl Ast {
             }
 
             Ast::Invariant { proof: block, .. }
-            | Ast::Ghost { block, .. }
-            | Ast::GhostMapping { block, .. } => block.as_ref().map(String::as_str),
+            | Ast::Ghost { axioms: block, .. }
+            | Ast::GhostMapping { axioms: block, .. } => block.as_ref().map(String::as_str),
 
             Ast::Definition { .. } => None,
             _ => None,

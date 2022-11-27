@@ -262,7 +262,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .map(|((mapping, name), block)| Intermediate::GhostMapping {
                 mapping,
                 name,
-                block,
+                axioms: block,
             })
             .labelled("ghost declaration (with mapping)");
 
@@ -275,7 +275,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                 name,
                 ty_list,
                 returns,
-                block,
+                axioms: block,
             })
             .labelled("ghost declaration (without mapping)");
 

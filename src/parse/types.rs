@@ -94,13 +94,13 @@ pub enum Intermediate {
     GhostMapping {
         name: String,
         mapping: String,
-        block: Option<Span>,
+        axioms: Option<Span>,
     },
     Ghost {
         name: String,
         ty_list: Vec<String>,
         returns: String,
-        block: Option<Span>,
+        axioms: Option<Span>,
     },
     Rule {
         name: String,

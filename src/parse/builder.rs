@@ -245,13 +245,13 @@ impl<'src> Builder<'src> {
             Intermediate::GhostMapping {
                 mapping,
                 name,
-                block,
+                axioms: block,
             } => {
                 let block = block.map(|c| self.owned_slice(c));
                 let ast = Ast::GhostMapping {
                     name,
                     mapping,
-                    block,
+                    axioms: block,
                 };
 
                 DocOrAst::Ast(ast)
@@ -260,14 +260,14 @@ impl<'src> Builder<'src> {
                 name,
                 ty_list,
                 returns,
-                block,
+                axioms: block,
             } => {
                 let block = block.map(|c| self.owned_slice(c));
                 let ast = Ast::Ghost {
                     name,
                     ty_list,
                     returns,
-                    block,
+                    axioms: block,
                 };
 
                 DocOrAst::Ast(ast)
