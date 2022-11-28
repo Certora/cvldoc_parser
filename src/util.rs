@@ -6,17 +6,6 @@ use ropey::Rope;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
-pub trait SpannedValue {
-    fn span(&self) -> Span;
-}
-
-impl<T> SpannedValue for Spanned<T> {
-    fn span(&self) -> Span {
-        let (_, span) = self;
-        span.clone()
-    }
-}
-
 pub type Span = std::ops::Range<usize>;
 pub type Spanned<T> = (T, Span);
 

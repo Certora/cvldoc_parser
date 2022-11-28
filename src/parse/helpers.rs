@@ -1,3 +1,5 @@
+use std::iter;
+
 use super::*;
 use chumsky::prelude::*;
 
@@ -82,14 +84,13 @@ pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone 
         .map(|(lhs, rhs)| format!("{lhs}.{rhs}"));
 
     let array_ty = {
-        let array_subscript = balanced_stringified(Token::SquareOpen, Token::SquareClose)
-            .at_least_once()
-            .map(String::from_iter);
+        let array_subscript =
+            balanced_stringified(Token::SquareOpen, Token::SquareClose).at_least_once();
         let caller = ident().or(call.clone());
 
         caller
             .then(array_subscript)
-            .map(|(caller, subscript)| format!("{caller}{subscript}"))
+            .map(|(caller, subscript)| iter::once(caller).chain(subscript).collect())
     };
 
     choice((array_ty, mapping_ty(), call, ident())).labelled("type")
