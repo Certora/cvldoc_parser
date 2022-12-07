@@ -145,3 +145,27 @@ pub(super) fn optional_sep_immediately_after_doc<'src>() -> BoxedParser<'src, ch
 
     comment.repeated().ignored().padded().boxed()
 }
+
+/// when parsing the block associated with the documentation, we are dealing with
+/// a stream of tokens. tokens may be separated by some combination of whitespace or comments.
+/// since we do not go through a lexing stage that filters them out, we must assume
+/// that they may exist (possibly repeatedly) between any valid token of the associated block.
+pub(super) fn optional_sep_immediately_after_doc<'src>() -> BoxedParser<'src, char, (), Simple<char>>
+{
+    let single_line_comment_between_tokens = just("//")
+        .then(none_of('/').rewind())
+        .then(take_to_newline_or_end())
+        .ignored();
+
+    //we cannot use the usual multi-line comment parser here, since it is
+    //now allowed to have "/**" as a comment starter.
+    let multi_line_comment_between_tokens = just("/*").then(take_to_starred_terminator()).ignored();
+
+    let comment = choice((
+        single_line_comment_between_tokens,
+        multi_line_comment_between_tokens,
+    ))
+    .padded();
+
+    comment.repeated().ignored().padded().boxed()
+}
