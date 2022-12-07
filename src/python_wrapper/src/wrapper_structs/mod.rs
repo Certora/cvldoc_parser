@@ -1,134 +1,75 @@
 pub mod conversions;
 
-use cvldoc_parser_core::{Param, Ty};
-use derivative::Derivative;
+use cvldoc_parser_core::{util::Span, Ast, Param};
 use pyo3::prelude::*;
-
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct Documentation {
-    #[pyo3(get)]
-    #[derivative(Debug = "ignore")]
-    pub raw: String,
-    #[pyo3(get)]
-    #[derivative(Debug = "ignore")]
-    pub range: Range,
-    #[pyo3(get)]
-    pub tags: Vec<DocumentationTag>,
-    #[pyo3(get)]
-    pub associated: Option<AssociatedElement>,
-}
+use std::{fmt::Debug, sync::Arc};
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct Range {
+#[pyclass(name = "Ast")]
+pub struct AstPy(Ast);
+
+#[derive(Clone)]
+#[pyclass(name = "CvlElement")]
+pub struct CvlElementPy {
     #[pyo3(get)]
-    pub start: Position,
+    pub doc: Vec<DocumentationTagPy>,
     #[pyo3(get)]
-    pub end: Position,
+    pub ast: AstPy,
+    span: Span,
+    src: Arc<str>,
 }
 
-#[pymethods]
-impl Range {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
+impl Debug for CvlElementPy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CvlElement")
+            .field("doc", &self.doc)
+            .field("ast", &self.ast)
+            .finish()
     }
 }
 
 #[derive(Debug, Clone)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct Position {
-    #[pyo3(get)]
-    pub line: u32,
-    #[pyo3(get)]
-    pub character: u32,
+#[pyclass(name = "Span")]
+pub struct SpanPy {
+    pub start: usize,
+    pub end: usize,
 }
 
 #[pymethods]
-impl Position {
+impl SpanPy {
     fn __repr__(&self) -> String {
         format!("{self:?}")
     }
 }
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct Diagnostic {
-    #[derivative(Debug = "ignore")]
-    #[pyo3(get)]
-    pub range: Range,
-    #[pyo3(get)]
-    pub description: String,
-    #[pyo3(get)]
-    pub severity: Severity,
-}
-
 #[pymethods]
-impl Diagnostic {
+impl CvlElementPy {
+    pub fn span(&self) -> SpanPy {
+        let start = self
+            .doc
+            .first()
+            .map(|tag| tag.span.start)
+            .unwrap_or(self.span.start);
+        let end = self.span.end;
+
+        SpanPy { start, end }
+    }
+
+    pub fn raw(&self) -> &str {
+        let span = {
+            let py_span = self.span();
+            py_span.start..py_span.end
+        };
+        &self.src[span]
+    }
+
     fn __repr__(&self) -> String {
         format!("{self:?}")
     }
 }
 
-#[derive(Debug, Clone)]
-#[pyclass(module = "cvldoc_parser")]
-pub enum Severity {
-    Warning,
-    Error,
-}
-
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct FreeForm {
-    #[derivative(Debug = "ignore")]
-    #[pyo3(get)]
-    pub raw: String,
-    #[derivative(Debug = "ignore")]
-    #[pyo3(get)]
-    pub range: Range,
-    #[pyo3(get)]
-    pub text: String,
-}
-
 #[pymethods]
-impl Documentation {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-
-    fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: cvldoc_parser_core::CvlDoc = self.clone().into();
-        c.enumerate_diagnostics()
-            .into_iter()
-            .map(Into::into)
-            .collect()
-    }
-}
-
-#[pymethods]
-impl FreeForm {
-    fn __repr__(&self) -> String {
-        format!("{self:?}")
-    }
-
-    fn diagnostics(&self) -> Vec<Diagnostic> {
-        let c: cvldoc_parser_core::CvlDoc = self.clone().into();
-        c.enumerate_diagnostics()
-            .into_iter()
-            .map(Into::into)
-            .collect()
-    }
-}
-
-#[derive(Debug, Clone)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct AssociatedElement(cvldoc_parser_core::AssociatedElement);
-
-#[pymethods]
-impl AssociatedElement {
+impl AstPy {
     #[getter]
     pub fn kind(&self) -> String {
         self.0.to_string()
@@ -146,37 +87,95 @@ impl AssociatedElement {
 
     #[getter]
     pub fn block(&self) -> Option<&str> {
-        self.0.block()
+        match &self.0 {
+            Ast::Rule { block, .. } | Ast::Function { block, .. } | Ast::Methods { block } => {
+                Some(block.as_str())
+            }
+
+            Ast::Invariant { proof: block, .. }
+            | Ast::Ghost { axioms: block, .. }
+            | Ast::GhostMapping { axioms: block, .. } => block.as_ref().map(String::as_str),
+
+            Ast::Definition { .. } => None,
+            _ => None,
+        }
     }
 
     #[getter]
     pub fn returns(&self) -> Option<&str> {
-        self.0.returns()
+        match &self.0 {
+            Ast::Function { returns, .. } => returns.as_ref().map(String::as_str),
+            Ast::Definition { returns, .. } | Ast::Ghost { returns, .. } => Some(returns.as_str()),
+            _ => None,
+        }
     }
 
     #[getter]
-    pub fn ty_list(&self) -> Vec<Ty> {
-        self.0.ty_list().map(Vec::from).unwrap_or_default()
+    pub fn ty_list(&self) -> Option<Vec<String>> {
+        match &self.0 {
+            Ast::Ghost { ty_list, .. } => Some(ty_list.clone()),
+            _ => None,
+        }
     }
 
     #[getter]
     pub fn filters(&self) -> Option<&str> {
-        self.0.filters()
+        match &self.0 {
+            Ast::Rule { filters, .. } | Ast::Invariant { filters, .. } => {
+                filters.as_ref().map(String::as_str)
+            }
+            _ => None,
+        }
     }
 
     #[getter]
     pub fn invariant(&self) -> Option<&str> {
-        self.0.invariant()
+        match &self.0 {
+            Ast::Invariant { invariant, .. } => Some(invariant.as_str()),
+            _ => None,
+        }
     }
 
     #[getter]
     pub fn mapping(&self) -> Option<&str> {
-        self.0.mapping()
+        match &self.0 {
+            Ast::GhostMapping { mapping, .. } => Some(mapping.as_str()),
+            _ => None,
+        }
     }
 
     #[getter]
     pub fn definition(&self) -> Option<&str> {
-        self.0.definition()
+        match &self.0 {
+            Ast::Definition { definition, .. } => Some(definition.as_str()),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    pub fn axioms(&self) -> Option<&str> {
+        match &self.0 {
+            Ast::Ghost { axioms, .. } | Ast::GhostMapping { axioms, .. } => {
+                axioms.as_ref().map(String::as_str)
+            }
+            _ => None,
+        }
+    }
+
+    #[getter]
+    pub fn text(&self) -> Option<&str> {
+        match &self.0 {
+            Ast::FreeFormComment { text } => Some(text.as_str()),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    pub fn proof(&self) -> Option<&str> {
+        match &self.0 {
+            Ast::Invariant { proof, .. } => proof.as_ref().map(String::as_str),
+            _ => None,
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -184,20 +183,17 @@ impl AssociatedElement {
     }
 }
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-#[pyclass(module = "cvldoc_parser")]
-pub struct DocumentationTag {
+#[derive(Clone)]
+#[pyclass(name = "DocumentationTag")]
+pub struct DocumentationTagPy {
     #[pyo3(get)]
     pub kind: String,
     #[pyo3(get)]
     pub description: String,
-    #[derivative(Debug = "ignore")]
-    #[pyo3(get)]
-    pub range: Option<Range>,
+    span: SpanPy,
 }
 
-impl DocumentationTag {
+impl DocumentationTagPy {
     fn param_name_and_description(&self) -> Option<(&str, &str)> {
         match self.kind.as_str() {
             "param" => {
@@ -212,8 +208,17 @@ impl DocumentationTag {
     }
 }
 
+impl Debug for DocumentationTagPy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DocumentationTag")
+            .field("kind", &self.kind)
+            .field("description", &self.description)
+            .finish()
+    }
+}
+
 #[pymethods]
-impl DocumentationTag {
+impl DocumentationTagPy {
     fn __repr__(&self) -> String {
         format!("{self:?}")
     }
@@ -226,3 +231,73 @@ impl DocumentationTag {
         self.param_name_and_description().map(|(_, desc)| desc)
     }
 }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(subclass)]
+// pub struct AstBase;
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct FreeFormComment {
+//     text: String,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass]
+// pub struct Rule {
+//     name: String,
+//     params: Vec<Param>,
+//     filters: Option<String>,
+//     block: String,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct Invariant {
+//     name: String,
+//     params: Vec<Param>,
+//     invariant: String,
+//     filters: Option<String>,
+//     proof: Option<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct Function {
+//     name: String,
+//     params: Vec<Param>,
+//     returns: Option<String>,
+//     block: String,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct Definition {
+//     name: String,
+//     params: Vec<Param>,
+//     returns: String,
+//     definition: String,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct Ghost {
+//     name: String,
+//     ty_list: Vec<String>,
+//     returns: String,
+//     axioms: Option<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct GhostMapping {
+//     name: String,
+//     mapping: String,
+//     axioms: Option<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// #[pyclass(extends = AstBase)]
+// pub struct Methods {
+//     block: String,
+// }

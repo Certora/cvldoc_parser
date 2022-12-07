@@ -1,4 +1,11 @@
 # Changelog
+## [0.6.0] - 2022-12-07
+### Changed
+- Updated to support new parsing engine
+- Breaking changes to data structure API
+### Removed
+- `serde` support removed for now
+
 ## [0.5.0] - 2022-11-16
 ### Added
 - Expose wrapper classes to Python, so their types can be named 

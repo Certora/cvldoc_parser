@@ -12,7 +12,7 @@ impl Ast {
             Ast::Definition { .. } => &[Notice, Dev, Param, Return],
             Ast::Ghost { .. } | Ast::GhostMapping { .. } => &[Notice, Dev, Param, Return],
             Ast::Methods { .. } => &[Notice, Dev],
-            Ast::FreeFormComment(..) => todo!(),
+            Ast::FreeFormComment { .. } => todo!(),
         }
     }
 

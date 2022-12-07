@@ -2,33 +2,26 @@ pub mod diagnostics;
 pub mod parse;
 pub mod util;
 
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
 use util::Span;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CvlElement {
     pub doc: Vec<DocumentationTag>,
     pub ast: Ast,
-    span: Span,
-    src: Arc<str>,
+    pub span: Span,
+    pub src: Arc<str>,
 }
 
-impl Debug for CvlElement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CvlElement")
-            .field("doc", &self.doc)
-            .field("ast", &self.ast)
-            .finish()
-    }
-}
+pub type Param = (Ty, Option<Ty>);
+pub type Ty = String;
 
-pub type Param = (String, Option<String>);
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ast {
-    FreeFormComment(String),
+    FreeFormComment {
+        text: String,
+    },
     Rule {
         name: String,
         params: Vec<Param>,
@@ -100,7 +93,7 @@ impl CvlElement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentationTag {
     pub kind: TagKind,
     pub description: String,
@@ -138,7 +131,7 @@ impl DocumentationTag {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Default)]
 pub enum TagKind {
     Title,
     #[default]
@@ -224,7 +217,7 @@ impl Display for Ast {
             Ast::Ghost { .. } | Ast::GhostMapping { .. } => "ghost",
             Ast::Methods { .. } => "methods",
 
-            Ast::FreeFormComment(..) => "freeform comment",
+            Ast::FreeFormComment { .. } => "freeform comment",
         };
 
         write!(f, "{kind}")

@@ -3,7 +3,6 @@ use super::Token;
 use crate::{util::SingleElement, Ast, Param, TagKind};
 use assert_matches::assert_matches;
 use indoc::indoc;
-use itertools::Itertools;
 use std::iter::zip;
 
 macro_rules! param {
@@ -46,29 +45,39 @@ fn free_form_comments() {
          */
     "};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
 
     assert_eq!(parsed.len(), 5);
 
     assert_eq!(
         parsed[0].ast,
-        Ast::FreeFormComment("# Section example".to_string())
+        Ast::FreeFormComment {
+            text: "# Section example".to_string()
+        }
     );
     assert_eq!(
         parsed[1].ast,
-        Ast::FreeFormComment("# Centered example".to_string()),
+        Ast::FreeFormComment {
+            text: "# Centered example".to_string()
+        },
     );
     assert_eq!(
         parsed[2].ast,
-        Ast::FreeFormComment("# Thick centered example".to_string()),
+        Ast::FreeFormComment {
+            text: "# Thick centered example".to_string()
+        },
     );
     assert_eq!(
         parsed[3].ast,
-        Ast::FreeFormComment("# Thick example".to_string()),
+        Ast::FreeFormComment {
+            text: "# Thick example".to_string()
+        },
     );
     assert_eq!(
         parsed[4].ast,
-        Ast::FreeFormComment("# Multiline example\nAdditional detail\nand more info".to_string()),
+        Ast::FreeFormComment {
+            text: "# Multiline example\nAdditional detail\nand more info".to_string()
+        },
     );
 }
 
@@ -91,7 +100,7 @@ fn doc_tag_kinds() {
         rule trees { }
     "};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
 
     let tag_kinds = parsed[0].doc.iter().cloned().map(|doc_tag| doc_tag.kind);
     let expected = [
@@ -149,8 +158,8 @@ fn parsing_params() {
         }
     "};
 
-    let parsed = Builder::new(src).build();
-    let data = parsed.into_iter().exactly_one().unwrap().ast;
+    let parsed = Builder::new(src).build().unwrap();
+    let data = parsed.single_element().ast;
 
     assert_eq!(data.name(), Some("goodMath"));
 
@@ -182,8 +191,8 @@ fn comments_in_element() {
                             ) { }
     "};
 
-    let parsed = Builder::new(src).build();
-    let ast = parsed.into_iter().exactly_one().unwrap().ast;
+    let parsed = Builder::new(src).build().unwrap();
+    let ast = parsed.single_element().ast;
 
     assert_matches!(ast, Ast::Rule { .. });
     assert_eq!(ast.name(), Some("ofLaw"));
@@ -255,7 +264,7 @@ fn commented_out_doc_followed_by_non_commented() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
 
     let cvl_element = parsed.single_element();
     let element_doc = cvl_element.doc.single_element();
@@ -280,7 +289,7 @@ fn grabbing_blocks() {
             }fizz buzz{}
         "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let cvl_element = parsed.single_element();
     let block = cvl_element
         .ast
@@ -311,7 +320,7 @@ fn invariants() {
         ;
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     assert_eq!(parsed.len(), 2);
 
     assert_matches!(parsed[0].ast, Ast::Invariant { .. });
@@ -347,7 +356,7 @@ fn rules_without_parameters() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let element = parsed.single_element();
 
     assert!(!element.doc.is_empty());
@@ -376,11 +385,11 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let element = &parsed[0];
 
     let expected = "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties";
-    let Ast::FreeFormComment(text) = &element.ast else { panic!("should have been parsed as documentation"); };
+    let Ast::FreeFormComment { text } = &element.ast else { panic!("should have been parsed as documentation"); };
     assert_eq!(text, expected);
 }
 
@@ -404,14 +413,14 @@ fn crlf() {
     "#}
     .replace('\n', "\r\n");
 
-    let parsed = Builder::new(&src_with_crlf_encoding).build();
+    let parsed = Builder::new(&src_with_crlf_encoding).build().unwrap();
 
-    let Ast::FreeFormComment(text) = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
 
     assert_eq!(
         text,
         "# testing the natspec parser.\r\nThis is made by Gabriel  it contains all\r\nknown tags"
-    )
+    );
 }
 
 #[test]
@@ -434,7 +443,7 @@ fn methods_with_whitespace_between_name_and_params() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let element = parsed.single_element();
 
     assert_matches!(element.ast, Ast::Rule { .. });
@@ -449,9 +458,9 @@ fn freeform_stars_without_text() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
 
-    let Ast::FreeFormComment(text) = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
     assert!(text.is_empty());
 }
 
@@ -472,7 +481,7 @@ fn freeform_stars_before_and_after() {
         /******************************************************************************/
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let expected_name = "total_supply_is_sum_of_balances";
 
     let needle = parsed
@@ -501,49 +510,8 @@ fn span_contains_both_doc_and_associated_element() {
         }
     "#};
 
-    let parsed = Builder::new(src).build();
+    let parsed = Builder::new(src).build().unwrap();
     let element = parsed.single_element();
 
     assert_eq!(element.raw(), src.trim());
-}
-
-#[test]
-#[ignore]
-fn new_parser() {
-    let src = indoc! { r#"
-
-    methods {
-        totalSupply(uint256) returns uint256 envfree
-        balanceOf(address, uint256) returns uint256 envfree
-        exists_wrapper(uint256) returns bool envfree
-        owner() returns address envfree
-    }
-    
-    /// Given two different token ids, if totalSupply for one changes, then
-    /// totalSupply for other must not.
-    rule token_totalSupply_independence(method f)
-    filtered {
-        f -> f.selector != safeBatchTransferFrom(address,address,uint256[],uint256[],bytes).selector
-    }
-    {
-        uint256 token1; uint256 token2;
-        require token1 != token2;
-
-        uint256 token1_before = totalSupply(token1);
-        uint256 token2_before = totalSupply(token2);
-
-        env e; calldataarg args;
-        require e.msg.sender != owner(); // owner can call mintBatch and burnBatch in our harness
-        f(e, args);
-
-        uint256 token1_after = totalSupply(token1);
-        uint256 token2_after = totalSupply(token2);
-
-        assert token1_after != token1_before => token2_after == token2_before,
-            "methods must not change the total supply of more than one token";
-    }
-    "#};
-
-    let cvl_elements = Builder::new(src).build();
-    dbg!(cvl_elements);
 }

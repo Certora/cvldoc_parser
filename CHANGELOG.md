@@ -1,4 +1,17 @@
 # Changelog
+## [0.6.0] - 2022-12-07
+### Changed
+- Parsing engine re-written
+### Changed
+- Data structure of AST changed, first class member is now `CvlElement`
+- Can now handle elements without documentation
+### Fixed
+- Fix detection of invariants and other elements
+- Improve parser recovery and robustness
+### Removed
+- `serde` support removed for now
+
+
 ## [0.5.0] - 2022-11-16
 ### Fixed
 - Handle lines of the form /*****/ (for any amount of *)

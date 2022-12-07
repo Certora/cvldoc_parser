@@ -1,14 +1,12 @@
-use std::mem;
-use std::sync::Arc;
-
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
 use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
 use crate::{Ast, CvlElement, DocumentationTag, TagKind};
-
 use chumsky::{Parser, Stream};
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
+use std::mem;
+use std::sync::Arc;
 
 struct DocumentationBuilder<'src> {
     kind: TagKind,
@@ -35,7 +33,7 @@ impl DocumentationTag {
 
         let mut builder = DocumentationBuilder::new(entire_span);
 
-        for (mut line, line_span) in input.into_iter() {
+        for (mut line, line_span) in input {
             if let Some(new_tag) = Builder::tag_from_content(line.content) {
                 if builder.previous_tag_still_in_progress() {
                     tags.push(builder.build_current());
@@ -44,7 +42,7 @@ impl DocumentationTag {
                 line.content = &line.content[new_tag.len() + 1..];
                 builder.kind = new_tag;
 
-                builder.span.start = line_span.start
+                builder.span.start = line_span.start;
             }
 
             builder.span.end = line_span.end;
@@ -67,7 +65,7 @@ impl<'a> DocumentationBuilder<'a> {
     }
 
     fn push_line(&mut self, line: TerminatedStr<'a>) {
-        self.desc.push(line)
+        self.desc.push(line);
     }
 
     fn build_current(&mut self) -> DocumentationTag {
@@ -107,9 +105,7 @@ impl<'src> Builder<'src> {
         let mut lexed = cvl_lexer()
             .parse(self.0)
             .map_err(|_| eyre!("lexing failed"))?;
-        // println!("lexing before dropping whitespace: {lexed:?}");
         lexed.retain(|(tok, _)| !matches!(tok, Token::SingleLineComment | Token::MultiLineComment));
-        // println!("lexing after dropping whitespace: {lexed:?}");
 
         Ok(lexed)
     }
@@ -124,7 +120,7 @@ impl<'src> Builder<'src> {
         parsing_results.ok_or_else(|| eyre!("parsing failed"))
     }
 
-    pub fn build(self) -> Vec<CvlElement> {
+    pub fn build(self) -> Result<Vec<CvlElement>> {
         let lexed = self.lex().unwrap();
         let parsed = self.parse(lexed).unwrap();
         self.output_cvl_elements(parsed)
@@ -145,9 +141,8 @@ impl<'src> Builder<'src> {
             .unwrap_or_else(|| panic!("{:?}: not in source bounds", span))
     }
 
-    //this panics, because a failure is an unrecoverable logic error
     fn owned_slice(&self, s: impl Into<Span>) -> String {
-        self.slice(s).to_string()
+        self.slice(s).to_owned()
     }
 
     fn tag_from_content(content: &str) -> Option<TagKind> {
@@ -163,16 +158,19 @@ impl<'src> Builder<'src> {
         }
     }
 
-    fn output_cvl_elements(&self, parsing_results: Vec<(Intermediate, Span)>) -> Vec<CvlElement> {
+    fn output_cvl_elements(
+        &self,
+        parsing_results: Vec<(Intermediate, Span)>,
+    ) -> Result<Vec<CvlElement>> {
         let mut current_doc = Vec::new();
         let src_ref = Arc::from(self.0);
 
-        parsing_results
+        let elements = parsing_results
             .into_iter()
             .filter_map(|spanned_intermediate| self.process_intermediate(spanned_intermediate).ok())
             .filter_map(|(doc_or_ast, span)| match doc_or_ast {
                 DocOrAst::Ast(ast) => {
-                    let doc = if matches!(ast, Ast::FreeFormComment(..)) {
+                    let doc = if matches!(ast, Ast::FreeFormComment { .. }) {
                         // assert!(current_doc.is_none(), "documentation followed by freeform");
                         Vec::new()
                     } else {
@@ -196,7 +194,9 @@ impl<'src> Builder<'src> {
                     None
                 }
             })
-            .collect()
+            .collect();
+
+        Ok(elements)
     }
 
     fn process_intermediate(
@@ -206,11 +206,11 @@ impl<'src> Builder<'src> {
         let process_result = match intermediate {
             Intermediate::FreeFormComment(style, span) => {
                 let input = self.slice(span.clone());
-                let ter_lines = ContentLines::new(input, span, Builder::chars_to_trim(style))
-                    .map(|(ter_line, _span)| ter_line);
-                let text = String::from_iter(ter_lines);
+                let text = ContentLines::new(input, span, Builder::chars_to_trim(style))
+                    .map(|(ter_line, _span)| ter_line)
+                    .collect();
 
-                let ast = Ast::FreeFormComment(text);
+                let ast = Ast::FreeFormComment { text };
                 DocOrAst::Ast(ast)
             }
             Intermediate::Documentation(style, span) => {

@@ -65,13 +65,8 @@ pub trait SingleElement {
     fn single_element(self) -> Self::Item;
 }
 
-impl<O, T> SingleElement for T
-where
-    O: Debug,
-    T: IntoIterator<Item = O>,
-    T::IntoIter: Debug,
-{
-    type Item = O;
+impl<T: Debug> SingleElement for Vec<T> {
+    type Item = T;
 
     fn single_element(self) -> Self::Item {
         self.into_iter()
