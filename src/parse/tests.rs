@@ -113,30 +113,6 @@ fn doc_tag_kinds() {
     assert!(expected.into_iter().eq(tag_kinds));
 }
 
-// #[test]
-// #[ignore = "requirements changed: now if a trimmed line is empty, we keep it"]
-// fn doc_description_with_empty_line() {
-//     let src = indoc! {"
-//             /**
-//              * some stuff goes here
-//              * more stuff goes there
-//              *
-//              * last line was empty
-//              * and should have been ignored
-//              * @title A house for dogs
-//              * @notice Not for cats
-//              */
-//             function dogHouse() { {}
-//                 string dog;
-//             }
-//         "};
-//     let parsed = parse_src(src);
-//     let tags = data_of_first(&parsed).and_then(DocData::tags).unwrap();
-
-//     assert_eq!(tags[0].kind, Tag::Notice);
-//     assert_eq!(tags[0].description, "some stuff goes here\nmore stuff goes there\nlast line was empty\nand should have been ignored");
-// }
-
 #[test]
 fn parsing_params() {
     let src = indoc! {"
