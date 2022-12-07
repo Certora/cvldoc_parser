@@ -31,14 +31,10 @@ fn parse(paths: Vec<&str>) -> Vec<Vec<wrapper_structs::CvlElementPy>> {
 fn cvldoc_parser(_py: Python, m: &PyModule) -> PyResult<()> {
     use wrapper_structs::*;
 
-    m.add_class::<Documentation>()?;
-    m.add_class::<FreeForm>()?;
-    m.add_class::<AssociatedElement>()?;
-    m.add_class::<DocumentationTag>()?;
-    m.add_class::<Diagnostic>()?;
-    m.add_class::<Severity>()?;
-    m.add_class::<Position>()?;
-    m.add_class::<Range>()?;
+    m.add_class::<CvlElementPy>()?;
+    m.add_class::<AstPy>()?;
+    m.add_class::<SpanPy>()?;
+    m.add_class::<DocumentationTagPy>()?;
 
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
