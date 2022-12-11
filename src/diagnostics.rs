@@ -1,99 +1,107 @@
-use crate::{AssociatedElement, CvlDoc, DocData, Tag};
-use lsp_types::{Diagnostic, DiagnosticSeverity, Range};
+use crate::util::RangeConverter;
+use crate::{Ast, CvlElement, DocumentationTag, TagKind};
+use lsp_types::{Diagnostic, DiagnosticSeverity};
 
-impl AssociatedElement {
-    fn supported_tags(&self) -> &[Tag] {
-        use Tag::*;
+impl Ast {
+    fn supported_tags(&self) -> &[TagKind] {
+        use TagKind::*;
         match self {
-            AssociatedElement::Rule { .. } => &[Title, Notice, Dev, Param, Formula],
-            AssociatedElement::Invariant { .. } => &[Title, Notice, Dev, Param],
-            AssociatedElement::Function { .. } => &[Notice, Dev, Param, Return],
-            AssociatedElement::Definition { .. } => &[Notice, Dev, Param, Return],
-            AssociatedElement::Ghost { .. } | AssociatedElement::GhostMapping { .. } => {
-                &[Notice, Dev, Param, Return]
-            }
-            AssociatedElement::Methods { .. } => &[Notice, Dev],
+            Ast::Rule { .. } => &[Title, Notice, Dev, Param, Formula],
+            Ast::Invariant { .. } => &[Title, Notice, Dev, Param],
+            Ast::Function { .. } => &[Notice, Dev, Param, Return],
+            Ast::Definition { .. } => &[Notice, Dev, Param, Return],
+            Ast::Ghost { .. } | Ast::GhostMapping { .. } => &[Notice, Dev, Param, Return],
+            Ast::Methods { .. } => &[Notice, Dev],
+            Ast::FreeFormComment { .. } => todo!(),
         }
     }
 
-    fn supports(&self, tag: &Tag) -> bool {
+    fn supports(&self, tag: &TagKind) -> bool {
         self.supported_tags().contains(tag)
     }
 
     fn defines_param(&self, param: &str) -> bool {
-        match self {
-            AssociatedElement::Rule { params, .. }
-            | AssociatedElement::Invariant { params, .. }
-            | AssociatedElement::Function { params, .. }
-            | AssociatedElement::Definition { params, .. } => params
-                .iter()
-                .filter_map(|(_, name)| name.as_ref())
-                .any(|name| name == param),
-            _ => false,
-        }
+        self.params()
+            .map(|params| {
+                params
+                    .iter()
+                    .filter_map(|(_ty, name)| name.as_ref())
+                    .any(|name| name == param)
+            })
+            .unwrap_or(false)
     }
 }
 
-impl CvlDoc {
-    pub fn enumerate_diagnostics(&self) -> Vec<Diagnostic> {
-        let mut warnings = Vec::new();
+const WARNING: DiagnosticSeverity = DiagnosticSeverity::WARNING;
+const ERROR: DiagnosticSeverity = DiagnosticSeverity::ERROR;
 
-        if let DocData::Documentation { tags, associated } = &self.data {
-            const WARNING: DiagnosticSeverity = DiagnosticSeverity::WARNING;
-            const ERROR: DiagnosticSeverity = DiagnosticSeverity::ERROR;
+enum DiagSpan<'a> {
+    EntireDoc,
+    SingleTag(&'a DocumentationTag),
+}
 
-            let mut add =
-                |message: String, diag_range: Option<Range>, severity: DiagnosticSeverity| {
-                    let diag = Diagnostic {
-                        range: diag_range.unwrap_or(self.range),
-                        severity: Some(severity),
-                        message,
-                        ..Default::default()
-                    };
-                    warnings.push(diag);
+impl CvlElement {
+    pub fn enumerate_diagnostics(&self, converter: RangeConverter) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+
+        if !self.doc.is_empty() {
+            let mut add = |message, diag_span, severity| {
+                let span = match diag_span {
+                    DiagSpan::EntireDoc => self.span.clone(),
+                    DiagSpan::SingleTag(tag) => tag.span.clone(),
                 };
 
-            if let Some(associated) = associated {
-                if tags.iter().all(|tag| tag.kind != Tag::Notice) {
-                    //Any applicable item is missing a notice
-                    add("associated element is undocumented".into(), None, WARNING);
-                }
+                let diag = Diagnostic {
+                    range: converter.to_range(span),
+                    severity: Some(severity),
+                    message,
+                    ..Default::default()
+                };
+                diagnostics.push(diag);
+            };
 
-                let tags_with_params = tags.iter().filter_map(|tag| {
-                    let param = tag.param_name()?;
-                    Some((tag, param))
-                });
-
-                for (i, (tag, param)) in tags_with_params.enumerate() {
-                    if !associated.defines_param(param) {
-                        //A @param is provided for a non-existent parameter
-                        add(format!("no such parameter: {param}"), tag.range, ERROR);
-                    } else if tags[..i].iter().any(|tag| tag.param_name() == Some(param)) {
-                        //Each parameter must be documented at most once
-                        add("parameter is already documented".into(), tag.range, ERROR);
-                    }
-                }
-
-                for tag in tags {
-                    if !associated.supports(&tag.kind) {
-                        let error_desc = format!("this tag is unsupported for {associated} blocks");
-                        add(error_desc, tag.range, ERROR);
-                    }
-                }
-            } else {
-                let error_desc = "no associated element for CVLDoc documentation block".into();
-                add(error_desc, None, ERROR);
+            if self.doc.iter().all(|tag| tag.kind != TagKind::Notice) {
+                //Any applicable item is missing a notice
+                let message = "associated element is undocumented".to_string();
+                add(message, DiagSpan::EntireDoc, WARNING);
             }
 
-            for tag in tags {
-                if let Some(unexpected_tag) = tag.kind.unexpected_tag() {
+            let tags_with_params = self.doc.iter().filter_map(|tag| {
+                let param = tag.param_name()?;
+                Some((tag, param))
+            });
+
+            for (i, (tag, param)) in tags_with_params.enumerate() {
+                if !self.ast.defines_param(param) {
+                    //A @param is provided for a non-existent parameter
+                    let message = format!("no such parameter: {param}");
+                    add(message, DiagSpan::SingleTag(tag), ERROR);
+                } else if self.doc[..i]
+                    .iter()
+                    .any(|tag| tag.param_name() == Some(param))
+                {
+                    //Each parameter must be documented at most once
+                    let message = "parameter is already documented".to_string();
+                    add(message, DiagSpan::SingleTag(tag), ERROR);
+                }
+            }
+
+            for tag in &self.doc {
+                if !self.ast.supports(&tag.kind) {
+                    let message = format!("this tag is unsupported for {} blocks", self.ast);
+                    add(message, DiagSpan::SingleTag(tag), ERROR);
+                }
+            }
+
+            for tag in &self.doc {
+                if let TagKind::Unexpected(unexpected_tag) = &tag.kind {
                     //Unrecognized tags appear anywhere
-                    let error_desc = format!("@{unexpected_tag} is unrecognized");
-                    add(error_desc, tag.range, WARNING);
+                    let message = format!("@{unexpected_tag} is unrecognized");
+                    add(message, DiagSpan::SingleTag(tag), WARNING);
                 }
             }
         }
 
-        warnings
+        diagnostics
     }
 }

@@ -1,16 +1,10 @@
+use color_eyre::eyre::ContextCompat;
+use color_eyre::Result;
+use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
-
-pub trait SpannedValue {
-    fn span(&self) -> Span;
-}
-
-impl<T> SpannedValue for Spanned<T> {
-    fn span(&self) -> Span {
-        let (_, span) = self;
-        span.clone()
-    }
-}
+use std::fmt::Debug;
+use std::ops::RangeBounds;
 
 pub type Span = std::ops::Range<usize>;
 pub type Spanned<T> = (T, Span);
@@ -58,5 +52,25 @@ impl RangeConverter {
     pub fn to_span(&self, range: Range) -> Span {
         let [start, end] = [range.start, range.end].map(|range| self.char_idx_of(range));
         start..end
+    }
+
+    pub fn slice(&self, char_range: impl RangeBounds<usize>) -> Result<String> {
+        let rope_slice = self.0.get_slice(char_range).wrap_err("not in range")?;
+        Ok(rope_slice.to_string())
+    }
+}
+
+pub trait SingleElement {
+    type Item;
+    fn single_element(self) -> Self::Item;
+}
+
+impl<T: Debug> SingleElement for Vec<T> {
+    type Item = T;
+
+    fn single_element(self) -> Self::Item {
+        self.into_iter()
+            .exactly_one()
+            .expect("must have exactly one element")
     }
 }
