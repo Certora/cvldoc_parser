@@ -23,9 +23,10 @@ impl From<Span> for SpanPy {
 impl From<CvlElement> for CvlElementPy {
     fn from(element: CvlElement) -> Self {
         CvlElementPy {
-            doc: element.doc.into_iter().map(Into::into).collect(),
+            doc: element.doc.into_iter().flatten().map(Into::into).collect(),
             ast: AstPy(element.ast),
-            span: element.span,
+            element_span: element.element_span,
+            doc_span: element.doc_span,
             src: element.src,
         }
     }

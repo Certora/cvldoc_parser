@@ -15,7 +15,8 @@ pub struct CvlElementPy {
     pub doc: Vec<DocumentationTagPy>,
     #[pyo3(get)]
     pub ast: AstPy,
-    span: Span,
+    element_span: Span,
+    doc_span: Option<Span>,
     src: Arc<str>,
 }
 
@@ -45,12 +46,13 @@ impl SpanPy {
 #[pymethods]
 impl CvlElementPy {
     pub fn span(&self) -> SpanPy {
-        let start = self
-            .doc
-            .first()
-            .map(|tag| tag.span.start)
-            .unwrap_or(self.span.start);
-        let end = self.span.end;
+        let start = if let Some(doc_span) = &self.doc_span {
+            doc_span.start
+        } else {
+            self.element_span.start
+        };
+
+        let end = self.element_span.end;
 
         SpanPy { start, end }
     }
@@ -184,6 +186,7 @@ impl AstPy {
 }
 
 #[derive(Clone)]
+#[allow(unused)]
 #[pyclass(name = "DocumentationTag")]
 pub struct DocumentationTagPy {
     #[pyo3(get)]

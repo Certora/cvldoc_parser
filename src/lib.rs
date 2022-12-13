@@ -8,9 +8,10 @@ use util::Span;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CvlElement {
-    pub doc: Vec<DocumentationTag>,
+    pub doc: Option<Vec<DocumentationTag>>,
     pub ast: Ast,
-    pub span: Span,
+    pub element_span: Span,
+    pub doc_span: Option<Span>,
     pub src: Arc<str>,
 }
 
@@ -65,7 +66,7 @@ pub enum Ast {
 
 impl CvlElement {
     pub fn title(&self) -> Option<String> {
-        let from_title_tag = self.doc.iter().find_map(|tag| {
+        let from_title_tag = self.doc.iter().flatten().find_map(|tag| {
             if tag.kind == TagKind::Title {
                 Some(tag.description.clone())
             } else {
@@ -78,12 +79,13 @@ impl CvlElement {
     }
 
     pub fn span(&self) -> Span {
-        let start = self
-            .doc
-            .first()
-            .map(|tag| tag.span.start)
-            .unwrap_or(self.span.start);
-        let end = self.span.end;
+        let start = if let Some(doc_span) = &self.doc_span {
+            doc_span.start 
+        } else {
+            self.element_span.start
+        };
+          
+        let end = self.element_span.end;
 
         start..end
     }

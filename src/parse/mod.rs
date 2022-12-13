@@ -21,16 +21,11 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         .at_least_once()
         .to(Token::CvlDocSlashed)
         .boxed();
-    let cvldoc_starred = {
-        //avoids the edge case of "/**/"
-        let prefix = just("/**").then(none_of("*/"));
-
-        prefix
-            .rewind()
-            .then(take_until(just("*/")))
-            .to(Token::CvlDocStarred)
-            .boxed()
-    };
+    let cvldoc_starred = just("/**")
+        .then_ignore(none_of("*/").rewind())
+        .then(take_until(just("*/")))
+        .to(Token::CvlDocStarred)
+        .boxed();
     let freeform_slashed_line = just("////").then(take_until(newline_or_end()));
     let freeform_slashed = freeform_slashed_line
         .at_least_once()
@@ -77,9 +72,6 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         .then(take_until(newline_or_end()))
         .to(Token::SingleLineComment);
     let multi_line_comment = {
-        // let edge_case = just("/**/").ignored();
-
-        // let prefix = just("/*").then(none_of('*')).ignored().rewind();
         let proper_comment = recursive(|proper_comment| {
             let content = just("/*").or(just("*/")).not().ignored();
 
@@ -91,10 +83,6 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         });
 
         proper_comment.to(Token::MultiLineComment)
-
-        // edge_case
-        //     .or(prefix.then_ignore(proper_comment))
-        //     .to(Token::MultiLineComment)
     };
     let comment = single_line_comment.or(multi_line_comment).boxed();
 

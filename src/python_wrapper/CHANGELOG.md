@@ -1,4 +1,8 @@
 # Changelog
+## [0.6.1] - 2022-12-13
+### Changed
+- Comptability with parse API change
+
 ## [0.6.0] - 2022-12-07
 ### Changed
 - Updated to support new parsing engine

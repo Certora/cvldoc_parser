@@ -44,10 +44,10 @@ impl CvlElement {
     pub fn enumerate_diagnostics(&self, converter: RangeConverter) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
 
-        if !self.doc.is_empty() {
+        if let Some(doc) = &self.doc {
             let mut add = |message, diag_span, severity| {
                 let span = match diag_span {
-                    DiagSpan::EntireDoc => self.span.clone(),
+                    DiagSpan::EntireDoc => self.element_span.clone(),
                     DiagSpan::SingleTag(tag) => tag.span.clone(),
                 };
 
@@ -60,13 +60,13 @@ impl CvlElement {
                 diagnostics.push(diag);
             };
 
-            if self.doc.iter().all(|tag| tag.kind != TagKind::Notice) {
+            if doc.iter().all(|tag| tag.kind != TagKind::Notice) {
                 //Any applicable item is missing a notice
                 let message = "associated element is undocumented".to_string();
                 add(message, DiagSpan::EntireDoc, WARNING);
             }
 
-            let tags_with_params = self.doc.iter().filter_map(|tag| {
+            let tags_with_params = doc.iter().filter_map(|tag| {
                 let param = tag.param_name()?;
                 Some((tag, param))
             });
@@ -76,7 +76,7 @@ impl CvlElement {
                     //A @param is provided for a non-existent parameter
                     let message = format!("no such parameter: {param}");
                     add(message, DiagSpan::SingleTag(tag), ERROR);
-                } else if self.doc[..i]
+                } else if doc[..i]
                     .iter()
                     .any(|tag| tag.param_name() == Some(param))
                 {
@@ -86,14 +86,14 @@ impl CvlElement {
                 }
             }
 
-            for tag in &self.doc {
+            for tag in doc {
                 if !self.ast.supports(&tag.kind) {
                     let message = format!("this tag is unsupported for {} blocks", self.ast);
                     add(message, DiagSpan::SingleTag(tag), ERROR);
                 }
             }
 
-            for tag in &self.doc {
+            for tag in doc {
                 if let TagKind::Unexpected(unexpected_tag) = &tag.kind {
                     //Unrecognized tags appear anywhere
                     let message = format!("@{unexpected_tag} is unrecognized");

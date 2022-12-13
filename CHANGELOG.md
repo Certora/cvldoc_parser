@@ -1,4 +1,9 @@
 # Changelog
+## [0.6.1] - 2022-12-13
+### Fixed
+- Correctly report span for raw code of starred documentation blocks
+
+
 ## [0.6.0] - 2022-12-07
 ### Changed
 - Parsing engine re-written

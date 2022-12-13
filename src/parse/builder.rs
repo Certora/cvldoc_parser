@@ -5,7 +5,6 @@ use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
-use std::mem;
 use std::sync::Arc;
 
 struct DocumentationBuilder<'src> {
@@ -129,7 +128,7 @@ impl<'src> Builder<'src> {
     const fn chars_to_trim<'a>(style: Style) -> &'a [char] {
         match style {
             Style::Slashed => &['/'],
-            Style::Starred => &['/', '*', ' ', '\t'],
+            Style::Starred => &['/', '*'],
         }
     }
 
@@ -162,7 +161,8 @@ impl<'src> Builder<'src> {
         &self,
         parsing_results: Vec<(Intermediate, Span)>,
     ) -> Result<Vec<CvlElement>> {
-        let mut current_doc = Vec::new();
+        let mut current_doc = None;
+        let mut current_doc_span = None;
         let src_ref = Arc::from(self.0);
 
         let elements = parsing_results
@@ -170,17 +170,18 @@ impl<'src> Builder<'src> {
             .filter_map(|spanned_intermediate| self.process_intermediate(spanned_intermediate).ok())
             .filter_map(|(doc_or_ast, span)| match doc_or_ast {
                 DocOrAst::Ast(ast) => {
-                    let doc = if matches!(ast, Ast::FreeFormComment { .. }) {
+                    let (doc, doc_span) = if matches!(ast, Ast::FreeFormComment { .. }) {
                         // assert!(current_doc.is_none(), "documentation followed by freeform");
-                        Vec::new()
+                        (None, None)
                     } else {
-                        mem::take(&mut current_doc)
+                        (current_doc.take(), current_doc_span.take())
                     };
 
                     let cvl_element = CvlElement {
-                        span,
                         doc,
                         ast,
+                        element_span: span,
+                        doc_span,
                         src: Arc::clone(&src_ref),
                     };
                     Some(cvl_element)
@@ -190,7 +191,8 @@ impl<'src> Builder<'src> {
                     //     current_doc.is_none(),
                     //     "documentation followed by documentation"
                     // );
-                    current_doc = doc;
+                    current_doc = Some(doc);
+                    current_doc_span = Some(span);
                     None
                 }
             })
@@ -397,8 +399,9 @@ impl<'a, 'b> Iterator for ContentLines<'a, 'b> {
         }
 
         let mut terminated = TerminatedStr::from(line);
-        let line_to_trim = &terminated.content;
-        terminated.content = line_to_trim.trim_matches(self.chars_to_trim).trim();
+
+        let should_trim = |ch| self.chars_to_trim.contains(&ch) || ch.is_ascii_whitespace();
+        terminated.content = terminated.content.trim_matches(should_trim);
 
         Some((terminated, span_of_line))
     }

@@ -102,7 +102,7 @@ fn doc_tag_kinds() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let tag_kinds = parsed[0].doc.iter().cloned().map(|doc_tag| doc_tag.kind);
+    let tag_kinds = parsed[0].doc.iter().flatten().cloned().map(|doc_tag| doc_tag.kind);
     let expected = [
         TagKind::Notice,
         TagKind::Title,
@@ -267,7 +267,7 @@ fn commented_out_doc_followed_by_non_commented() {
     let parsed = Builder::new(src).build().unwrap();
 
     let cvl_element = parsed.single_element();
-    let element_doc = cvl_element.doc.single_element();
+    let element_doc = cvl_element.doc.unwrap().single_element();
 
     assert_eq!(element_doc.kind, TagKind::Title);
     assert_eq!(cvl_element.ast.name(), Some("bar"));
@@ -359,7 +359,7 @@ fn rules_without_parameters() {
     let parsed = Builder::new(src).build().unwrap();
     let element = parsed.single_element();
 
-    assert!(!element.doc.is_empty());
+    assert!(!element.doc.unwrap().is_empty());
     assert_matches!(element.ast, Ast::Rule { .. });
 }
 
@@ -514,4 +514,24 @@ fn span_contains_both_doc_and_associated_element() {
     let element = parsed.single_element();
 
     assert_eq!(element.raw(), src.trim());
+}
+
+#[test]
+fn raw_capture_for_multi_line_doc() {
+    let src = indoc! { r#"
+        /**
+         * @title takeTwoEnvs function
+         * @param e1 - first environment
+         * @param e2 - second environment
+         **/
+        function takeTwoEnvs(env e1, env e2) {
+            require e1.msg.value == 0;
+            require e1.msg.sender == e2.msg.sender;
+        }
+    "#};
+
+    let parsed = Builder::new(src).build().unwrap();
+    let element = parsed.single_element();
+
+    assert!(element.raw().starts_with("/**"));
 }
