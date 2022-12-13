@@ -76,10 +76,7 @@ impl CvlElement {
                     //A @param is provided for a non-existent parameter
                     let message = format!("no such parameter: {param}");
                     add(message, DiagSpan::SingleTag(tag), ERROR);
-                } else if doc[..i]
-                    .iter()
-                    .any(|tag| tag.param_name() == Some(param))
-                {
+                } else if doc[..i].iter().any(|tag| tag.param_name() == Some(param)) {
                     //Each parameter must be documented at most once
                     let message = "parameter is already documented".to_string();
                     add(message, DiagSpan::SingleTag(tag), ERROR);

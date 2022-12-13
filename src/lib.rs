@@ -80,11 +80,11 @@ impl CvlElement {
 
     pub fn span(&self) -> Span {
         let start = if let Some(doc_span) = &self.doc_span {
-            doc_span.start 
+            doc_span.start
         } else {
             self.element_span.start
         };
-          
+
         let end = self.element_span.end;
 
         start..end

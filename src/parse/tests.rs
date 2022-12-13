@@ -102,7 +102,12 @@ fn doc_tag_kinds() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let tag_kinds = parsed[0].doc.iter().flatten().cloned().map(|doc_tag| doc_tag.kind);
+    let tag_kinds = parsed[0]
+        .doc
+        .iter()
+        .flatten()
+        .cloned()
+        .map(|doc_tag| doc_tag.kind);
     let expected = [
         TagKind::Notice,
         TagKind::Title,
