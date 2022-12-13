@@ -6,7 +6,6 @@ pub mod types;
 use crate::util::Span;
 use chumsky::prelude::*;
 use helpers::*;
-use std::ops::Not;
 use types::{Intermediate, Style, Token};
 
 // fn unpack_tuple4<A, B, C, D>((((a, b), c), d): (((A, B), C), D)) -> (A, B, C, D) {
@@ -116,8 +115,10 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         })
         .boxed();
     let other = {
-        let not_whitespace = |c: &char| c.is_ascii_whitespace().not();
-        filter(not_whitespace)
+        // otherwise, this would capture block delimiters.
+        static IMPORTANT_SIGILS: &[char] = &['{', '}'];
+
+        filter(|ch: &char| !ch.is_ascii_whitespace() && !IMPORTANT_SIGILS.contains(ch))
             .at_least_once()
             .collect()
             .map(Token::Other)

@@ -1,4 +1,8 @@
 # Changelog
+## [0.6.2] - 2022-12-13
+### Changed
+- Bugfix in core
+
 ## [0.6.1] - 2022-12-13
 ### Changed
 - Comptability with parse API change

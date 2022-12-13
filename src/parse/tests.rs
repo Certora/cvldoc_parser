@@ -540,3 +540,33 @@ fn raw_capture_for_multi_line_doc() {
 
     assert!(element.raw().starts_with("/**"));
 }
+
+#[test]
+fn blocks_where_brackets_are_not_separated_by_whitespace() {
+    let src = indoc! {"
+        /**
+         * If deadline increases then we are in `deadlineExtended` state and `castVote`
+         * was called.
+         * @dev RULE PASSING
+         * @dev ADVANCED SANITY PASSING 
+         */ 
+        rule deadlineChangeEffects(method f) filtered {f -> !f.isView} {
+            env e; calldataarg args; uint256 pId;
+        
+            requireInvariant quorumReachedEffect(e, pId);
+            
+            uint256 deadlineBefore = proposalDeadline(pId);
+            f(e, args);
+            uint256 deadlineAfter = proposalDeadline(pId);
+            
+            assert(deadlineAfter > deadlineBefore => latestCastVoteCall() == e.block.number && deadlineExtended(e, pId));
+        }
+    "};
+
+    let parsed = Builder::new(src).build().unwrap();
+    let element = parsed.single_element();
+
+    let Ast::Rule { filters, .. } = &element.ast else { panic!() };
+
+    assert_eq!(filters.as_ref().unwrap(), "{f -> !f.isView}");
+}

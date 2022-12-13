@@ -1,4 +1,9 @@
 # Changelog
+## [0.6.2] - 2022-12-13
+### Fixed
+- Incorrect detection of code blocks
+
+
 ## [0.6.1] - 2022-12-13
 ### Fixed
 - Correctly report span for raw code of starred documentation blocks
