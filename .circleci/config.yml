@@ -156,7 +156,7 @@ jobs:
           at: .
       - run:
           name: Install dependencies
-          command: brew install wget
+          command: HOMEBREW_NO_AUTO_UPDATE=1 brew install wget
       - run:
           name: Alias python to python3
           command: printf "\n%s\n%s" "alias python=python3" "shopt -s expand_aliases" >> ~/.bash_profile
