@@ -599,6 +599,6 @@ fn variable_char_lengths() {
     assert_eq!(parsed[1].raw(), "methods {\n    𝇇_𝇇\n}");
     assert_eq!(
         parsed[2].raw(),
-        "//////////////\n//// Text ////\n//////////////"
+        "//////////////\n//// Text ////\n//////////////\n"
     );
 }

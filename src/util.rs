@@ -3,7 +3,6 @@ use color_eyre::Result;
 use itertools::Itertools;
 use lsp_types::{Position, Range};
 use ropey::Rope;
-use std::cmp;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
@@ -27,16 +26,16 @@ impl<'a> ByteSpan<'a> for Span {
 
         let (start, _) = iter.nth(self.start)?;
 
-        // fix for slices that end at EOF, else it reads past the end.
-        // I think this is because the original span includes EOF, but
-        // the str doesn't?
-        let last_pos = {
-            let last_iter_pos = iter.clone().count() - 1;
+        let original_iter = iter.clone();
+        let (end, _) = iter.nth(self.len() - 1).or_else(|| {
+            // fix for slices that end at EOF, else it reads past the end.
+            // I think this is because the original span includes EOF, but
+            // the str doesn't?
+            let (i, ch) = original_iter.last()?;
 
-            cmp::min(last_iter_pos, self.len() - 1)
-        };
-
-        let (end, _) = iter.clone().nth(last_pos)?;
+            // the length of the last character may be longer than 1 byte.
+            Some((i + ch.len_utf8(), ch))
+        })?;
 
         Some(start..end)
     }
