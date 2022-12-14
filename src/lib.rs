@@ -4,15 +4,26 @@ pub mod util;
 
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
-use util::Span;
+use util::{ByteSpan, Span};
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CvlElement {
     pub doc: Option<Vec<DocumentationTag>>,
     pub ast: Ast,
     pub element_span: Span,
     pub doc_span: Option<Span>,
     pub src: Arc<str>,
+}
+
+impl Debug for CvlElement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CvlElement")
+            .field("doc", &self.doc)
+            .field("ast", &self.ast)
+            .field("element_span", &self.element_span)
+            .field("doc_span", &self.doc_span)
+            .finish()
+    }
 }
 
 pub type Param = (Ty, Option<Ty>);
@@ -91,7 +102,7 @@ impl CvlElement {
     }
 
     pub fn raw(&self) -> &str {
-        &self.src[self.span()]
+        self.span().byte_slice(&self.src).unwrap()
     }
 }
 

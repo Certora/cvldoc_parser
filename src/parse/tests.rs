@@ -570,3 +570,35 @@ fn blocks_where_brackets_are_not_separated_by_whitespace() {
 
     assert_eq!(filters.as_ref().unwrap(), "{f -> !f.isView}");
 }
+
+#[test]
+fn variable_char_lengths() {
+    let src = indoc! { r#"
+        /***
+        🔥🔥🔥💯 frfr
+        */
+        methods {
+            𝇇_𝇇
+        }
+
+        //////////////
+        //// Text ////
+        //////////////
+    "#};
+
+    let parsed = Builder::new(src).build().unwrap();
+    assert_eq!(parsed.len(), 3);
+
+    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!(); };
+    assert_eq!(text, "🔥🔥🔥💯 frfr");
+
+    let Ast::FreeFormComment { text } = &parsed[2].ast else { panic!(); };
+    assert_eq!(text, "Text");
+
+    assert_eq!(parsed[0].raw(), "/***\n🔥🔥🔥💯 frfr\n*/");
+    assert_eq!(parsed[1].raw(), "methods {\n    𝇇_𝇇\n}");
+    assert_eq!(
+        parsed[2].raw(),
+        "//////////////\n//// Text ////\n//////////////"
+    );
+}

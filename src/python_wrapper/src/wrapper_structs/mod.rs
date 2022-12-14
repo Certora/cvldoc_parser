@@ -1,6 +1,7 @@
 pub mod conversions;
 
-use cvldoc_parser_core::{util::Span, Ast, Param};
+use cvldoc_parser_core::util::{ByteSpan, Span};
+use cvldoc_parser_core::{Ast, Param};
 use pyo3::prelude::*;
 use std::{fmt::Debug, sync::Arc};
 
@@ -43,6 +44,13 @@ impl SpanPy {
     }
 }
 
+impl From<SpanPy> for Span {
+    fn from(span_py: SpanPy) -> Span {
+        let SpanPy { start, end } = span_py;
+        start..end
+    }
+}
+
 #[pymethods]
 impl CvlElementPy {
     pub fn span(&self) -> SpanPy {
@@ -58,11 +66,7 @@ impl CvlElementPy {
     }
 
     pub fn raw(&self) -> &str {
-        let span = {
-            let py_span = self.span();
-            py_span.start..py_span.end
-        };
-        &self.src[span]
+        Span::from(self.span()).byte_slice(&self.src).unwrap()
     }
 
     fn __repr__(&self) -> String {

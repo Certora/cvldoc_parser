@@ -1,6 +1,7 @@
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
 use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
+use crate::util::ByteSpan;
 use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
 use color_eyre::eyre::{bail, eyre};
@@ -135,8 +136,7 @@ impl<'src> Builder<'src> {
     //this panics, because a failure is an unrecoverable logic error
     fn slice(&self, s: impl Into<Span>) -> &str {
         let span: Span = s.into();
-        self.0
-            .get(span.clone())
+        span.byte_slice(self.0)
             .unwrap_or_else(|| panic!("{:?}: not in source bounds", span))
     }
 

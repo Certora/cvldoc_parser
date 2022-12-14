@@ -40,9 +40,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         let middle_endings = choice((just("*/\r\n"), just("*/\n")));
         let endings = choice((just("/\r\n"), just("/\n"), just("/").then_ignore(end())));
 
-        let header = just("/***")
-            .then(just('*').repeated())
-            .then(endings.clone());
+        let header = just("/***").then(just('*').repeated()).then(endings);
         let middle = just("/***").then(take_until(middle_endings));
 
         middle.padded_by(header).to(Token::FreeFormStarred).boxed()
@@ -67,7 +65,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
     };
 
     let single_line_comment = just("//")
-        .then(none_of('/'))
+        .then(none_of('/').rewind())
         .then(take_until(newline_or_end()))
         .to(Token::SingleLineComment);
     let multi_line_comment = {

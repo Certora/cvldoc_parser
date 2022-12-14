@@ -1,13 +1,15 @@
 # Changelog
+## [0.6.3] - 2022-12-14
+### Fixed
+- Handle variable-length characters
+
 ## [0.6.2] - 2022-12-13
 ### Fixed
 - Incorrect detection of code blocks
 
-
 ## [0.6.1] - 2022-12-13
 ### Fixed
 - Correctly report span for raw code of starred documentation blocks
-
 
 ## [0.6.0] - 2022-12-07
 ### Changed
@@ -21,13 +23,11 @@
 ### Removed
 - `serde` support removed for now
 
-
 ## [0.5.0] - 2022-11-16
 ### Fixed
 - Handle lines of the form /*****/ (for any amount of *)
 - Ignore /*****/ (for any amount of *) when it is a separator between elements
 - Fixed element span to contain both the documentation block and the associated element
-
 
 ## [0.4.2] - 2022-10-02
 ### Fixed

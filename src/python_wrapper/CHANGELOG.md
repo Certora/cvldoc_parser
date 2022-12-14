@@ -1,4 +1,8 @@
 # Changelog
+## [0.6.3] - 2022-12-14
+### Fixed
+- Bugfix in core
+
 ## [0.6.2] - 2022-12-13
 ### Changed
 - Bugfix in core
