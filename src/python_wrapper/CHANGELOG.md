@@ -1,4 +1,8 @@
 # Changelog
+## [1.0.0] - 2022-12-21
+### Changed
+- adding upload to production in ci script.
+- 
 ## [0.6.4] - 2022-12-14
 ### Fixed
 - Bugfix in core
