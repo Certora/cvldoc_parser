@@ -1,4 +1,7 @@
 # Changelog
+## [1.0.0] - 2022-12-20
+- Release Candidate for first public version
+
 ## [0.6.4] - 2022-12-14
 ### Fixed
 - Handle variable-length characters
