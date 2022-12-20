@@ -200,6 +200,21 @@ jobs:
               python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} "${wheel}"
             done
 
+  publish_prod:
+    docker:
+      - image: cimg/python:3.10.7
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Upload wheels to production PyPI
+          command: |
+            pip install --user twine
+            for wheel in wheels/*.whl; do
+              echo "Uploading $wheel to production...";
+              python -m twine upload --verbose -u ${PRODPYPI_USER} -p ${PRODPYPI_PASSWORD} "${wheel}"            
+            done
+
 workflows:
   unit-test-build-and-integration-test:
     jobs:
@@ -230,3 +245,10 @@ workflows:
           filters:
             branches:
               only: master
+      - publish_prod:
+          requires:
+            - publish-to-testpypi
+          filters:
+            branches:
+              only:
+                - /production.*/
