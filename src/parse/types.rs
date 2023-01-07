@@ -67,7 +67,13 @@ impl Display for Token {
             Token::Using => "using",
             Token::Hook => "hook",
             Token::Preserved => "preserved",
-            _ => panic!("{self:?}"),
+            
+            Token::CvlDocSlashed
+            | Token::CvlDocStarred
+            | Token::FreeFormSlashed
+            | Token::FreeFormStarred
+            | Token::SingleLineComment
+            | Token::MultiLineComment => return write!(f, "{self:?}"),
         };
 
         write!(f, "{s}")
@@ -112,7 +118,7 @@ pub enum Intermediate {
         name: String,
         params: Vec<(String, Option<String>)>,
         returns: String,
-        definition: String,
+        definition: Span,
     },
     Invariant {
         name: String,
