@@ -41,42 +41,41 @@ pub enum Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Token::Ghost => "ghost",
-            Token::Definition => "definition",
-            Token::Rule => "rule",
-            Token::Invariant => "invariant",
-            Token::Methods => "methods",
-            Token::Function => "function",
-            Token::Mapping => "mapping",
-            Token::Returns => "returns",
-            Token::Filtered => "filtered",
-            Token::Ident(data) | Token::Other(data) | Token::Number(data) => data.as_str(),
-            Token::RoundOpen => "(",
-            Token::RoundClose => ")",
-            Token::SquareOpen => "[",
-            Token::SquareClose => "]",
-            Token::CurlyOpen => "{",
-            Token::CurlyClose => "}",
-            Token::Dot => ".",
-            Token::Comma => ",",
-            Token::Semicolon => ";",
-            Token::Equals => "=",
-            Token::Arrow => "=>",
-            Token::Axiom => "axiom",
-            Token::Using => "using",
-            Token::Hook => "hook",
-            Token::Preserved => "preserved",
-            
+        match self {
+            Token::Ghost => write!(f, "ghost"),
+            Token::Definition => write!(f, "definition"),
+            Token::Rule => write!(f, "rule"),
+            Token::Invariant => write!(f, "invariant"),
+            Token::Methods => write!(f, "methods"),
+            Token::Function => write!(f, "function"),
+            Token::Mapping => write!(f, "mapping"),
+            Token::Returns => write!(f, "returns"),
+            Token::Filtered => write!(f, "filtered"),
+            Token::RoundOpen => write!(f, "("),
+            Token::RoundClose => write!(f, ")"),
+            Token::SquareOpen => write!(f, "["),
+            Token::SquareClose => write!(f, "]"),
+            Token::CurlyOpen => write!(f, "{{"),
+            Token::CurlyClose => write!(f, "}}"),
+            Token::Dot => write!(f, "."),
+            Token::Comma => write!(f, ","),
+            Token::Semicolon => write!(f, ";"),
+            Token::Equals => write!(f, "="),
+            Token::Arrow => write!(f, "=>"),
+            Token::Axiom => write!(f, "axiom"),
+            Token::Using => write!(f, "using"),
+            Token::Hook => write!(f, "hook"),
+            Token::Preserved => write!(f, "preserved"),
+
+            Token::Ident(data) | Token::Other(data) | Token::Number(data) => write!(f, "{data}"),
+
             Token::CvlDocSlashed
             | Token::CvlDocStarred
             | Token::FreeFormSlashed
             | Token::FreeFormStarred
             | Token::SingleLineComment
-            | Token::MultiLineComment => return write!(f, "{self:?}"),
-        };
-
-        write!(f, "{s}")
+            | Token::MultiLineComment => write!(f, "{self:?}"),
+        }
     }
 }
 
