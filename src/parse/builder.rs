@@ -299,7 +299,7 @@ impl<'src> Builder<'src> {
                 definition,
             } => {
                 let definition = self.owned_slice(definition);
-                
+
                 let ast = Ast::Definition {
                     name,
                     params,
