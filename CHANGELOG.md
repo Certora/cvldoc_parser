@@ -1,4 +1,8 @@
 # Changelog
+## [0.6.5] - 2023-01-09 
+### Fixed
+- Use span-based capturing for `Definition`
+
 ## [0.6.4] - 2022-12-14
 ### Fixed
 - Handle variable-length characters
