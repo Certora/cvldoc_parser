@@ -273,7 +273,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         let rhs = none_of(Token::Semicolon)
             .at_least_once()
             .then_ignore(just(Token::Semicolon))
-            .map(String::from_iter);
+            .map_with_span(|_, span| span);
 
         just(Token::Definition)
             .ignore_then(ident())
