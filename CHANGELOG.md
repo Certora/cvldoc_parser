@@ -1,12 +1,10 @@
 # Changelog
-<<<<<<< HEAD
-## [0.6.5] - 2023-01-09 
+## [1.0.1] - 2023-01-09 
 ### Fixed
 - Use span-based capturing for `Definition`
-=======
+
 ## [1.0.0] - 2022-12-20
 - Release Candidate for first public version
->>>>>>> master
 
 ## [0.6.4] - 2022-12-14
 ### Fixed
