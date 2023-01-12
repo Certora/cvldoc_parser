@@ -1,6 +1,7 @@
 # Changelog
-## [1.0.0] - 2022-12-20
-- Release Candidate for first public version
+## [0.6.5] - 2023-01-09 
+### Fixed
+- Bugfix in core
 
 ## [0.6.4] - 2022-12-14
 ### Fixed

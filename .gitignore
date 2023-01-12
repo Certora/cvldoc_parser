@@ -3,3 +3,4 @@
 **/.DS_Store
 BUGS
 **/python_wrapper/.env
+**/tests
