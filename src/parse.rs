@@ -289,7 +289,6 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                     definition,
                 },
             )
-            .recover_with(skip_until(SYNC_TOKENS, |_| Intermediate::ParseError))
             .labelled("definition declaration")
             .boxed()
     };
@@ -323,7 +322,9 @@ fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<
 
     let decl = decl_parser().boxed();
 
-    choice([freeform, cvl_doc, decl])
+    let failure = any().to(Intermediate::ParseError).boxed();
+
+    choice([freeform, cvl_doc, decl, failure])
         .recover_with(skip_until(SYNC_TOKENS, |_| Intermediate::ParseError))
         .map_with_span(|intermediate, span| (intermediate, span))
         .repeated()

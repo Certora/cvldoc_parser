@@ -602,3 +602,10 @@ fn variable_char_lengths() {
         "//////////////\n//// Text ////\n//////////////\n"
     );
 }
+
+#[test]
+fn repeated_iterations_caused_by_improper_recovery() {
+    let src = "foo { function }";
+
+    let _ = Builder::new(src).build();
+}
