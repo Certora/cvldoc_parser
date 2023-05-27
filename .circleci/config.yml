@@ -79,7 +79,7 @@ jobs:
           command: |
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-            maturin build --target=aarch64-apple-darwin --universal2
+            maturin build --target=universal2-apple-darwin
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
