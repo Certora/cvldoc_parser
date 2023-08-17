@@ -1,7 +1,12 @@
+mod cvl2;
+
 use super::builder::Builder;
 use super::Token;
+use crate::CvlElement;
 use crate::{util::SingleElement, Ast, Param, TagKind};
 use assert_matches::assert_matches;
+use color_eyre::Report;
+use color_eyre::eyre::{Context, bail};
 use indoc::indoc;
 use std::iter::zip;
 
@@ -20,6 +25,24 @@ fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
     for (expected, actual) in zip(expected_params, actual_params) {
         assert_eq!(expected.0, actual.0, "parsed param type is different");
         assert_eq!(expected.1, actual.1, "parsed param name is different");
+    }
+}
+
+fn parse_exactly_one(src: &str) -> Result<CvlElement, Report> {
+    let mut parsed = Builder::new(src).build().wrap_err("parsing failed")?;
+
+    match parsed.len() {
+        1 => Ok(parsed.remove(0)),
+        n => bail!("expected single element, but found {n}"),
+    }
+}
+
+fn parse_zero(src: &str) -> Result<(), Report> {
+    let parsed = Builder::new(src).build().wrap_err("parsing failed")?;
+
+    match parsed.len() {
+        0 => Ok(()),
+        n => bail!("expected single element, but found {n}"),
     }
 }
 
