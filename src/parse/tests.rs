@@ -312,7 +312,7 @@ fn invariants() {
         @notice Zero cannot be an operator.
         */
         invariant validOperator(address operator)
-                beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 )
+                beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 );
 
         /**
              @title Valid state of an operator ❌.

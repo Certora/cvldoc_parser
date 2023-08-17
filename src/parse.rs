@@ -8,10 +8,6 @@ use chumsky::prelude::*;
 use helpers::*;
 use types::{Intermediate, Style, Token};
 
-// fn unpack_tuple4<A, B, C, D>((((a, b), c), d): (((A, B), C), D)) -> (A, B, C, D) {
-//     (a, b, c, d)
-// }
-
 pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let cvldoc_slashed_line = just("///")
         .then_ignore(none_of('/').rewind())
@@ -192,23 +188,8 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         // (1) the invariant expression itself (mandatory)
         // (2) param filters block (optional)
         // (3) the invariant proof (optional)
-        let input_end = end().ignored();
-        let invariant_expression = {
-            //in correct code, the invariant expression must end at one of:
-            // (1) the param filters block (must start with "invariant")
-            // (2) the invariant proof (must start with an opening curly bracket)
-            // (3) the next valid syntactic element after the invariant block
 
-            let mut stop_tokens = vec![Token::Filtered, Token::CurlyOpen];
-            stop_tokens.extend_from_slice(&INVARIANT_STOP_TOKENS);
-
-            let stop = one_of(stop_tokens.clone()).ignored().or(input_end);
-
-            none_of(stop_tokens)
-                .at_least_once()
-                .then_ignore(stop.rewind())
-                .map_with_span(|_, span| span)
-        };
+        struct Spans(Span, Option<Span>, Option<Span>);
 
         //in correct code, a param filters block must be balanced
         let filtered_block = just(Token::Filtered)
@@ -218,14 +199,33 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         //in correct code, a proof block must be balanced
         let invariant_proof = code_block();
 
+        let single_invariant = none_of(Token::Semicolon)
+            .at_least_once()
+            .map_with_span(|_, span| Spans(span, None, None))
+            .then_ignore(just(Token::Semicolon))
+            .boxed();
+
+        let with_filtered_block = none_of(Token::Filtered)
+            .then_ignore(just(Token::Filtered).rewind())
+            .map_with_span(|_, span| span)
+            .then(filtered_block)
+            .then(invariant_proof.clone().or_not())
+            .map(|((inv, filtered), proof)| Spans(inv, Some(filtered), proof))
+            .boxed();
+
+        let with_proof = none_of(Token::CurlyOpen)
+            .then_ignore(just(Token::CurlyOpen).rewind())
+            .map_with_span(|_, span| span)
+            .then(invariant_proof)
+            .map(|(inv, proof)| Spans(inv, None, Some(proof)))
+            .boxed();
+
         just(Token::Invariant)
             .ignore_then(ident())
             .then(param_list())
-            .then(invariant_expression)
-            .then(filtered_block.or_not())
-            .then(invariant_proof.or_not())
+            .then(choice([single_invariant, with_filtered_block, with_proof]))
             .map(
-                |((((name, params), invariant), filters), proof)| Intermediate::Invariant {
+                |((name, params), Spans(invariant, filters, proof))| Intermediate::Invariant {
                     name,
                     params,
                     invariant,
@@ -301,6 +301,20 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         ghost_decl,
         definition_decl,
     ])
+}
+
+/// here for backwards-compatibility with CVL1
+/// assumes valid endings of the invariant keyword have already been tried
+#[allow(unused)]
+fn invariant_expression_without_semicolon() -> impl Parser<Token, Span, Error = Simple<Token>> {
+    let input_end = end().ignored();
+
+    let stop = one_of(INVARIANT_STOP_TOKENS).ignored().or(input_end);
+
+    none_of(INVARIANT_STOP_TOKENS)
+        .at_least_once()
+        .then_ignore(stop.rewind())
+        .map_with_span(|_, span| span)
 }
 
 fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<Token>> {
