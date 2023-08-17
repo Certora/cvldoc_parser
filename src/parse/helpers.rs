@@ -1,7 +1,7 @@
-use std::iter;
-
 use super::*;
 use chumsky::prelude::*;
+use itertools::Itertools;
+use std::iter;
 
 pub const SYNC_TOKENS: [Token; 10] = [
     Token::FreeFormSlashed,
@@ -75,6 +75,12 @@ pub(super) fn mapping_ty() -> impl Parser<Token, String, Error = Simple<Token>> 
 
 pub(super) fn ident() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
     select! { Token::Ident(ident) => ident }
+}
+
+pub(super) fn function_ident() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    select! { Token::Ident(ident) => ident }
+        .separated_by(just(Token::Dot))
+        .map(|sections| sections.into_iter().join("."))
 }
 
 pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {

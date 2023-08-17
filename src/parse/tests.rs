@@ -5,8 +5,8 @@ use super::Token;
 use crate::CvlElement;
 use crate::{util::SingleElement, Ast, Param, TagKind};
 use assert_matches::assert_matches;
+use color_eyre::eyre::{bail, Context};
 use color_eyre::Report;
-use color_eyre::eyre::{Context, bail};
 use indoc::indoc;
 use std::iter::zip;
 

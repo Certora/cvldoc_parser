@@ -41,3 +41,13 @@ fn rule_keyword_is_mandatory() {
     let Ast::Rule { name, .. } = parsed.ast else { panic!() };
     assert_eq!(name, "onlyOwnerCanDecrease")
 }
+
+#[test]
+/// allowed in wildcard summarizations
+fn underscores_and_dots_in_function_names() {
+    let func = "function _.hello.world_(int fizz, int buzz) {\nreturn\n}";
+    let parsed = parse_exactly_one(func).unwrap();
+    let Ast::Function { name, .. } = parsed.ast else { panic!() };
+
+    assert_eq!(name, "_.hello.world_");
+}

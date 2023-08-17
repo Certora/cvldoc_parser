@@ -160,7 +160,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     let function_decl = {
         let optional_returns = returns_type().or_not();
         just(Token::Function)
-            .ignore_then(ident())
+            .ignore_then(function_ident())
             .then(param_list())
             .then(optional_returns)
             .then(code_block())
