@@ -29,30 +29,25 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .labelled("rule declaration")
             .boxed()
     };
-    let function_decl = {
-        let optional_returns = returns_type().or_not();
-        just(Token::Function)
-            .ignore_then(function_ident())
-            .then(param_list())
-            .then(optional_returns)
-            .then(code_block())
-            .map(
-                |(((name, params), returns), block)| Intermediate::Function {
-                    name,
-                    params,
-                    returns,
-                    block,
-                },
-            )
-            .labelled("function declaration")
-            .boxed()
-    };
+    let function_decl = just(Token::Function)
+        .ignore_then(function_ident())
+        .then(param_list())
+        .then(returns_type().or_not())
+        .then(code_block())
+        .map(
+            |(((name, params), returns), block)| Intermediate::Function {
+                name,
+                params,
+                returns,
+                block,
+            },
+        )
+        .labelled("function declaration");
 
     let methods_decl = just(Token::Methods)
         .ignore_then(code_block())
         .map(Intermediate::Methods)
-        .labelled("methods declaration")
-        .boxed();
+        .labelled("methods declaration");
 
     let invariant_decl = {
         //after the parameter list, rest of the invariant declaration
@@ -66,28 +61,25 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         let single_invariant = none_of(Token::Semicolon)
             .at_least_once()
             .map_with_span(|_, span| Spans(span, None, None))
-            .then_ignore(just(Token::Semicolon))
-            .boxed();
+            .then_ignore(just(Token::Semicolon));
 
         let with_filtered_block = none_of(Token::Filtered)
             .then_ignore(just(Token::Filtered).rewind())
             .map_with_span(|_, span| span)
             .then(filtered_block())
             .then(code_block().or_not())
-            .map(|((inv, filtered), proof)| Spans(inv, Some(filtered), proof))
-            .boxed();
+            .map(|((inv, filtered), proof)| Spans(inv, Some(filtered), proof));
 
         let with_proof = none_of(Token::CurlyOpen)
             .then_ignore(just(Token::CurlyOpen).rewind())
             .map_with_span(|_, span| span)
             .then(code_block())
-            .map(|(inv, proof)| Spans(inv, None, Some(proof)))
-            .boxed();
+            .map(|(inv, proof)| Spans(inv, None, Some(proof)));
 
         just(Token::Invariant)
             .ignore_then(ident())
             .then(param_list())
-            .then(choice([single_invariant, with_filtered_block, with_proof]))
+            .then(choice((single_invariant, with_filtered_block, with_proof)))
             .map(
                 |((name, params), Spans(invariant, filters, proof))| Intermediate::Invariant {
                     name,
@@ -161,7 +153,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         .ignore_then(string())
         .then_ignore(just(Token::Semicolon))
         .map(Intermediate::Import)
-        .boxed();
+        .labelled("import statement");
 
     let use_stmt = {
         let invariant = just(Token::Invariant)
@@ -182,7 +174,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         just(Token::Use)
             .ignore_then(choice((invariant, builtin_rule, rule)))
-            .boxed()
+            .labelled("use statement")
     };
 
     let using_stmt = just(Token::Using)
@@ -194,9 +186,9 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             contract_name,
             spec_name,
         })
-        .boxed();
+        .labelled("using statement");
 
-    choice([
+    choice((
         rule_decl,
         function_decl,
         methods_decl,
@@ -206,7 +198,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         import_stmt,
         use_stmt,
         using_stmt,
-    ])
+    ))
 }
 
 /// here for backwards-compatibility with CVL1
@@ -229,22 +221,20 @@ fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<
         Token::FreeFormStarred => Style::Starred,
     }
     .map_with_span(Intermediate::FreeFormComment)
-    .labelled("freeform")
-    .boxed();
+    .labelled("freeform");
 
     let cvl_doc = select! {
         Token::CvlDocSlashed => Style::Slashed,
         Token::CvlDocStarred => Style::Starred,
     }
     .map_with_span(Intermediate::Documentation)
-    .labelled("documentation")
-    .boxed();
+    .labelled("documentation");
 
-    let decl = decl_parser().boxed();
+    let decl = decl_parser();
 
-    let failure = any().to(Intermediate::ParseError).boxed();
+    let failure = any().to(Intermediate::ParseError);
 
-    choice([freeform, cvl_doc, decl, failure])
+    choice((freeform, cvl_doc, decl, failure))
         .recover_with(skip_until(SYNC_TOKENS, |_| Intermediate::ParseError))
         .map_with_span(|intermediate, span| (intermediate, span))
         .repeated()
