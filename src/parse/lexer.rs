@@ -1,7 +1,7 @@
-use chumsky::prelude::*;
+use super::helpers::*;
 use crate::parse::types::Token;
 use crate::util::Span;
-use super::helpers::*;
+use chumsky::prelude::*;
 
 pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let cvldoc_slashed_line = just("///")
@@ -85,6 +85,13 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             .boxed()
     };
 
+    let string = none_of('"')
+        .at_least_once()
+        .collect()
+        .map(Token::String)
+        .delimited_by(just('"'), just('"'))
+        .boxed();
+
     let keyword_or_ident = text::ident()
         .map(|ident: String| match ident.as_str() {
             "ghost" => Token::Ghost,
@@ -100,6 +107,10 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             "using" => Token::Using,
             "hook" => Token::Hook,
             "preserved" => Token::Preserved,
+            "import" => Token::Import,
+            "builtin" => Token::Builtin,
+            "use" => Token::Use,
+            "as" => Token::As,
             _ => Token::Ident(ident),
         })
         .boxed();
@@ -123,6 +134,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         comment,
         num,
         sigil,
+        string,
         keyword_or_ident,
         other,
     ])

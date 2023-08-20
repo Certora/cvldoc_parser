@@ -2,6 +2,8 @@ pub mod builder;
 mod helpers;
 mod lexer;
 mod terminated_str;
+#[cfg(test)]
+mod tests;
 pub mod types;
 
 use crate::util::Span;
@@ -13,13 +15,10 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     let rule_decl = {
         let optional_params = param_list().or_not().map(Option::unwrap_or_default);
 
-        let param_filters = just(Token::Filtered).ignore_then(code_block());
-        let optional_filter = param_filters.or_not();
-
         just(Token::Rule)
             .ignore_then(ident())
             .then(optional_params)
-            .then(optional_filter)
+            .then(filtered_block().or_not())
             .then(code_block())
             .map(|(((name, params), filters), block)| Intermediate::Rule {
                 name,
@@ -64,14 +63,6 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         struct Spans(Span, Option<Span>, Option<Span>);
 
-        //in correct code, a param filters block must be balanced
-        let filtered_block = just(Token::Filtered)
-            .then(balanced(Token::CurlyOpen, Token::CurlyClose))
-            .map_with_span(|_, span| span);
-
-        //in correct code, a proof block must be balanced
-        let invariant_proof = code_block();
-
         let single_invariant = none_of(Token::Semicolon)
             .at_least_once()
             .map_with_span(|_, span| Spans(span, None, None))
@@ -81,15 +72,15 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         let with_filtered_block = none_of(Token::Filtered)
             .then_ignore(just(Token::Filtered).rewind())
             .map_with_span(|_, span| span)
-            .then(filtered_block)
-            .then(invariant_proof.clone().or_not())
+            .then(filtered_block())
+            .then(code_block().or_not())
             .map(|((inv, filtered), proof)| Spans(inv, Some(filtered), proof))
             .boxed();
 
         let with_proof = none_of(Token::CurlyOpen)
             .then_ignore(just(Token::CurlyOpen).rewind())
             .map_with_span(|_, span| span)
-            .then(invariant_proof)
+            .then(code_block())
             .map(|(inv, proof)| Spans(inv, None, Some(proof)))
             .boxed();
 
@@ -166,6 +157,45 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .boxed()
     };
 
+    let import_stmt = just(Token::Import)
+        .ignore_then(string())
+        .then_ignore(just(Token::Semicolon))
+        .map(Intermediate::Import)
+        .boxed();
+
+    let use_stmt = {
+        let invariant = just(Token::Invariant)
+            .ignore_then(ident())
+            .then(choice((code_block().map(Some), semicolon_ender())))
+            .map(|(name, proof)| Intermediate::UseInvariant { name, proof });
+
+        let builtin_rule = just(Token::Builtin)
+            .ignore_then(just(Token::Rule))
+            .ignore_then(ident())
+            .then_ignore(just(Token::Semicolon))
+            .map(|name| Intermediate::UseBuiltinRule { name });
+
+        let rule = just(Token::Rule)
+            .ignore_then(ident())
+            .then(choice((filtered_block().map(Some), semicolon_ender())))
+            .map(|(name, filters)| Intermediate::UseRule { name, filters });
+
+        just(Token::Use)
+            .ignore_then(choice((invariant, builtin_rule, rule)))
+            .boxed()
+    };
+
+    let using_stmt = just(Token::Using)
+        .ignore_then(ident())
+        .then_ignore(just(Token::As))
+        .then(ident())
+        .then_ignore(just(Token::Semicolon))
+        .map(|(contract_name, spec_name)| Intermediate::Using {
+            contract_name,
+            spec_name,
+        })
+        .boxed();
+
     choice([
         rule_decl,
         function_decl,
@@ -173,6 +203,9 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         invariant_decl,
         ghost_decl,
         definition_decl,
+        import_stmt,
+        use_stmt,
+        using_stmt,
     ])
 }
 
@@ -216,6 +249,3 @@ fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<
         .map_with_span(|intermediate, span| (intermediate, span))
         .repeated()
 }
-
-#[cfg(test)]
-mod tests;

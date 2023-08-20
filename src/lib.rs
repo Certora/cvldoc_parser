@@ -73,6 +73,22 @@ pub enum Ast {
     Methods {
         block: String,
     },
+    Import(String),
+    Using {
+        contract_name: String,
+        spec_name: String,
+    },
+    UseRule {
+        name: String,
+        filters: Option<String>,
+    },
+    UseBuiltinRule {
+        name: String,
+    },
+    UseInvariant {
+        name: String,
+        proof: Option<String>,
+    },
 }
 
 impl CvlElement {
@@ -229,8 +245,10 @@ impl Display for Ast {
             Ast::Definition { .. } => "definition",
             Ast::Ghost { .. } | Ast::GhostMapping { .. } => "ghost",
             Ast::Methods { .. } => "methods",
-
             Ast::FreeFormComment { .. } => "freeform comment",
+            Ast::Import(..) => "import",
+            Ast::Using { .. } => "using",
+            Ast::UseRule { .. } | Ast::UseBuiltinRule { .. } | Ast::UseInvariant { .. } => "use",
         };
 
         write!(f, "{kind}")

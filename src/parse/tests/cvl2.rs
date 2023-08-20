@@ -1,3 +1,5 @@
+use std::iter;
+
 use super::*;
 use indoc::formatdoc;
 
@@ -50,4 +52,96 @@ fn underscores_and_dots_in_function_names() {
     let Ast::Function { name, .. } = parsed.ast else { panic!() };
 
     assert_eq!(name, "_.hello.world_");
+}
+
+#[test]
+fn import_stmt() {
+    let good = "import \"everything/but/the/kitchen/sink\";";
+    let bad = "import everything/but/the/kitchen/sink;";
+
+    assert_eq!(
+        parse_exactly_one(good).unwrap().ast,
+        Ast::Import("everything/but/the/kitchen/sink".to_owned())
+    );
+    assert!(parse_zero(bad).is_ok());
+    assert!(parse_fails_without_semicolon(iter::once(good)));
+}
+
+#[test]
+fn using_stmt() {
+    let src = "using DummyERC20Impl as stake_token;";
+    let parsed = parse_exactly_one(src).unwrap();
+    assert_eq!(
+        parsed.ast,
+        Ast::Using {
+            contract_name: "DummyERC20Impl".to_owned(),
+            spec_name: "stake_token".to_owned()
+        }
+    );
+
+    let without_semicolon = src.trim_end_matches(';');
+    assert!(parse_zero(without_semicolon).is_ok());
+}
+
+#[test]
+fn use_stmt() {
+    let rule = "use rule tuktuk;";
+    let rule_with_filtered = "use rule tuktuk filtered { f -> foo(f), g -> bar(g) }";
+
+    let builtin_rule = "use builtin rule blabla;";
+
+    // we don't seem to have any example of "use invariant"s with proofs in EVMVerifier source
+    let invariant = "use invariant zamzam;";
+    let invariant_with_proof = "use invariant zamzam { preserved { require hello() < world; } }";
+
+    assert_eq!(
+        parse_exactly_one(rule).unwrap().ast,
+        Ast::UseRule {
+            name: "tuktuk".to_owned(),
+            filters: None
+        }
+    );
+
+    assert_eq!(
+        parse_exactly_one(rule_with_filtered).unwrap().ast,
+        Ast::UseRule {
+            name: "tuktuk".to_owned(),
+            filters: Some("{ f -> foo(f), g -> bar(g) }".to_owned())
+        }
+    );
+
+    assert_eq!(
+        parse_exactly_one(builtin_rule).unwrap().ast,
+        Ast::UseBuiltinRule {
+            name: "blabla".to_owned()
+        }
+    );
+
+    assert_eq!(
+        parse_exactly_one(invariant).unwrap().ast,
+        Ast::UseInvariant {
+            name: "zamzam".to_owned(),
+            proof: None
+        }
+    );
+
+    assert_eq!(
+        parse_exactly_one(invariant_with_proof).unwrap().ast,
+        Ast::UseInvariant {
+            name: "zamzam".to_owned(),
+            proof: Some("preserved { require hello() < world; }".to_owned()),
+        }
+    );
+
+    assert!(parse_fails_without_semicolon([
+        rule,
+        builtin_rule,
+        invariant
+    ]));
+}
+
+fn parse_fails_without_semicolon(srcs: impl IntoIterator<Item = &'static str>) -> bool {
+    srcs.into_iter()
+        .map(|src| src.trim_end_matches(';'))
+        .all(|without_semicolon| parse_zero(without_semicolon).is_ok())
 }

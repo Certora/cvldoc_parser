@@ -1,6 +1,6 @@
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
-use super::{lexer::cvl_lexer, cvl_parser, Intermediate, Span, Style};
+use super::{cvl_parser, lexer::cvl_lexer, Intermediate, Span, Style};
 use crate::util::ByteSpan;
 use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
@@ -330,6 +330,27 @@ impl<'src> Builder<'src> {
 
                 DocOrAst::Ast(ast)
             }
+            Intermediate::Import(imported) => DocOrAst::Ast(Ast::Import(imported)),
+            Intermediate::UseBuiltinRule { name } => DocOrAst::Ast(Ast::UseBuiltinRule { name }),
+            Intermediate::UseRule { name, filters } => {
+                let filters = filters.map(|c| self.owned_slice(c));
+                let ast = Ast::UseRule { name, filters };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::UseInvariant { name, proof } => {
+                let proof = proof.map(|c| self.trimmed_block_slice(c).to_string());
+                let ast = Ast::UseInvariant { name, proof };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::Using {
+                contract_name,
+                spec_name,
+            } => DocOrAst::Ast(Ast::Using {
+                contract_name,
+                spec_name,
+            }),
             Intermediate::ParseError => bail!("parse errors are not parsed"),
         };
 

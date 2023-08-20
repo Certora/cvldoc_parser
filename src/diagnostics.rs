@@ -12,7 +12,12 @@ impl Ast {
             Ast::Definition { .. } => &[Notice, Dev, Param, Return],
             Ast::Ghost { .. } | Ast::GhostMapping { .. } => &[Notice, Dev, Param, Return],
             Ast::Methods { .. } => &[Notice, Dev],
-            Ast::FreeFormComment { .. } => todo!(),
+            Ast::FreeFormComment { .. } => &[Notice, Dev],
+            Ast::Import(..)
+            | Ast::Using { .. }
+            | Ast::UseRule { .. }
+            | Ast::UseBuiltinRule { .. }
+            | Ast::UseInvariant { .. } => &[Dev],
         }
     }
 

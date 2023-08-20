@@ -77,6 +77,10 @@ pub(super) fn ident() -> impl Parser<Token, String, Error = Simple<Token>> + Clo
     select! { Token::Ident(ident) => ident }
 }
 
+pub(super) fn string() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    select! { Token::String(s) => s }
+}
+
 pub(super) fn function_ident() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
     select! { Token::Ident(ident) => ident }
         .separated_by(just(Token::Dot))
@@ -112,6 +116,14 @@ pub(super) fn param_list(
 
 pub(super) fn code_block() -> impl Parser<Token, Span, Error = Simple<Token>> + Clone {
     balanced(Token::CurlyOpen, Token::CurlyClose).map_with_span(|_, span| span)
+}
+
+pub(super) fn filtered_block() -> impl Parser<Token, Span, Error = Simple<Token>> + Clone {
+    just(Token::Filtered).ignore_then(code_block())
+}
+
+pub(super) fn semicolon_ender() -> impl Parser<Token, Option<Span>, Error = Simple<Token>> + Clone {
+    just(Token::Semicolon).to(None)
 }
 
 pub(super) fn returns_type() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {

@@ -24,6 +24,7 @@ pub enum Token {
     CurlyOpen,
     CurlyClose,
     Ident(String),
+    String(String),
     Number(String),
     Other(String),
     Dot,
@@ -37,6 +38,10 @@ pub enum Token {
     Using,
     Hook,
     Preserved,
+    Import,
+    Use,
+    Builtin,
+    As,
 }
 
 impl Display for Token {
@@ -51,6 +56,7 @@ impl Display for Token {
             Token::Mapping => write!(f, "mapping"),
             Token::Returns => write!(f, "returns"),
             Token::Filtered => write!(f, "filtered"),
+            Token::Builtin => write!(f, "builtin"),
             Token::RoundOpen => write!(f, "("),
             Token::RoundClose => write!(f, ")"),
             Token::SquareOpen => write!(f, "["),
@@ -66,8 +72,13 @@ impl Display for Token {
             Token::Using => write!(f, "using"),
             Token::Hook => write!(f, "hook"),
             Token::Preserved => write!(f, "preserved"),
+            Token::Import => write!(f, "import"),
+            Token::Use => write!(f, "use"),
+            Token::As => write!(f, "as"),
 
-            Token::Ident(data) | Token::Other(data) | Token::Number(data) => write!(f, "{data}"),
+            Token::Ident(data) | Token::Other(data) | Token::Number(data) | Token::String(data) => {
+                write!(f, "{data}")
+            }
 
             Token::CvlDocSlashed
             | Token::CvlDocStarred
@@ -125,6 +136,22 @@ pub enum Intermediate {
         invariant: Span,
         filters: Option<Span>,
         proof: Option<Span>,
+    },
+    Import(String),
+    UseRule {
+        name: String,
+        filters: Option<Span>,
+    },
+    UseBuiltinRule {
+        name: String,
+    },
+    UseInvariant {
+        name: String,
+        proof: Option<Span>,
+    },
+    Using {
+        contract_name: String,
+        spec_name: String,
     },
     ParseError,
 }
