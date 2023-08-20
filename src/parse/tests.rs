@@ -42,7 +42,7 @@ fn parse_zero(src: &str) -> Result<(), Report> {
 
     match parsed.len() {
         0 => Ok(()),
-        n => bail!("expected single element, but found {n}"),
+        n => bail!("expected zero elements, but found {n}"),
     }
 }
 
