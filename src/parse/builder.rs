@@ -1,6 +1,6 @@
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
-use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
+use super::{lexer::cvl_lexer, cvl_parser, Intermediate, Span, Style};
 use crate::util::ByteSpan;
 use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
