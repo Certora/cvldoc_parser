@@ -186,17 +186,15 @@ fn parsing_params() {
         }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let data = parsed.single_element().ast;
-
-    assert_eq!(data.name(), Some("goodMath"));
+    let ast = parse_exactly_one(src).unwrap().ast;
+    assert_eq!(ast.name(), Some("goodMath"));
 
     let expected_params = [
         param!("uint", "a"),
         param!("int", "b"),
         param!("string", "c"),
     ];
-    compare_params(&expected_params, data.params().unwrap());
+    compare_params(&expected_params, ast.params().unwrap());
 }
 
 #[test]
@@ -219,8 +217,7 @@ fn comments_in_element() {
                             ) { }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let ast = parsed.single_element().ast;
+    let ast = parse_exactly_one(src).unwrap().ast;
 
     assert_matches!(ast, Ast::Rule { .. });
     assert_eq!(ast.name(), Some("ofLaw"));
@@ -292,9 +289,7 @@ fn commented_out_doc_followed_by_non_commented() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-
-    let cvl_element = parsed.single_element();
+    let cvl_element = parse_exactly_one(src).unwrap();
     let element_doc = cvl_element.doc.unwrap().single_element();
 
     assert_eq!(element_doc.kind, TagKind::Title);
@@ -317,14 +312,9 @@ fn grabbing_blocks() {
             }fizz buzz{}
         "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let cvl_element = parsed.single_element();
-    let block = cvl_element
-        .ast
-        .block()
-        .expect("could not capture code block");
+    let ast = parse_exactly_one(src).unwrap().ast;
 
-    assert!(block.ends_with("{}{}{}{{}}{{{{   }}}}"));
+    assert!(ast.block().unwrap().ends_with("{}{}{}{{}}{{{{   }}}}"));
 }
 
 #[test]
@@ -384,8 +374,7 @@ fn rules_without_parameters() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
+    let element = parse_exactly_one(src).unwrap();
 
     assert!(!element.doc.unwrap().is_empty());
     assert_matches!(element.ast, Ast::Rule { .. });
@@ -471,10 +460,7 @@ fn methods_with_whitespace_between_name_and_params() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert_matches!(element.ast, Ast::Rule { .. });
+    assert_matches!(parse_exactly_one(src).unwrap().ast, Ast::Rule { .. });
 }
 
 #[test]
@@ -538,10 +524,7 @@ fn span_contains_both_doc_and_associated_element() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert_eq!(element.raw(), src.trim());
+    assert_eq!(parse_exactly_one(src).unwrap().raw(), src.trim());
 }
 
 #[test]
@@ -558,10 +541,7 @@ fn raw_capture_for_multi_line_doc() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert!(element.raw().starts_with("/**"));
+    assert!(parse_exactly_one(src).unwrap().raw().starts_with("/**"));
 }
 
 #[test]
@@ -586,9 +566,7 @@ fn blocks_where_brackets_are_not_separated_by_whitespace() {
         }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
+    let element = parse_exactly_one(src).unwrap();
     let Ast::Rule { filters, .. } = &element.ast else { panic!() };
 
     assert_eq!(filters.as_ref().unwrap(), "{f -> !f.isView}");
