@@ -26,7 +26,19 @@ impl Debug for CvlElement {
     }
 }
 
-pub type Param = (String, String);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Param {
+    pub ty: String,
+    pub name: String,
+}
+impl Param {
+    pub fn new<S1: ToString, S2: ToString>(ty: S1, name: S2) -> Param {
+        Param {
+            ty: ty.to_string(),
+            name: name.to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ast {
@@ -89,27 +101,24 @@ pub enum Ast {
         proof: Option<String>,
     },
     HookSload {
-        name: String,
-        ty: String,
+        loaded: Param,
         slot_pattern: String,
         block: String,
     },
     HookSstore {
-        name_new: String,
-        name_old: Option<String>,
-        ty: String,
+        stored: Param,
+        old: Option<Param>,
         slot_pattern: String,
         block: String,
     },
     HookCreate {
-        name: String,
-        ty: String,
+        created: Param,
         block: String,
     },
     HookOpcode {
         opcode: String,
-        params: Vec<(String, String)>,
-        returned_value: Option<(String, String)>,
+        params: Vec<Param>,
+        returns: Option<Param>,
         block: String,
     },
 }
@@ -307,15 +316,18 @@ impl Ast {
 
     pub fn block(&self) -> Option<&str> {
         match self {
-            Ast::Rule { block, .. } | Ast::Function { block, .. } | Ast::Methods { block } => {
-                Some(block.as_str())
-            }
+            Ast::Rule { block, .. }
+            | Ast::Function { block, .. }
+            | Ast::Methods { block }
+            | Ast::HookSload { block, .. }
+            | Ast::HookSstore { block, .. }
+            | Ast::HookCreate { block, .. }
+            | Ast::HookOpcode { block, .. } => Some(block.as_str()),
 
             Ast::Invariant { proof: block, .. }
             | Ast::Ghost { axioms: block, .. }
             | Ast::GhostMapping { axioms: block, .. } => block.as_ref().map(String::as_str),
 
-            Ast::Definition { .. } => None,
             _ => None,
         }
     }

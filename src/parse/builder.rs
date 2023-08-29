@@ -247,13 +247,13 @@ impl<'src> Builder<'src> {
             Intermediate::GhostMapping {
                 mapping,
                 name,
-                axioms: block,
+                axioms,
             } => {
-                let block = block.map(|c| self.owned_slice(c));
+                let axioms = axioms.map(|c| self.owned_slice(c));
                 let ast = Ast::GhostMapping {
                     name,
                     mapping,
-                    axioms: block,
+                    axioms,
                 };
 
                 DocOrAst::Ast(ast)
@@ -262,14 +262,14 @@ impl<'src> Builder<'src> {
                 name,
                 ty_list,
                 returns,
-                axioms: block,
+                axioms,
             } => {
-                let block = block.map(|c| self.owned_slice(c));
+                let axioms = axioms.map(|c| self.owned_slice(c));
                 let ast = Ast::Ghost {
                     name,
                     ty_list,
                     returns,
-                    axioms: block,
+                    axioms,
                 };
 
                 DocOrAst::Ast(ast)
@@ -354,16 +354,14 @@ impl<'src> Builder<'src> {
             }),
             Intermediate::ParseError => bail!("parse errors are not parsed"),
             Intermediate::HookSload {
-                loaded_value,
+                loaded,
                 slot_pattern,
                 block,
             } => {
-                let (ty, name) = loaded_value;
                 let slot_pattern = self.owned_slice(slot_pattern).to_string();
                 let block = self.trimmed_block_slice(block).to_string();
                 let ast = Ast::HookSload {
-                    name,
-                    ty,
+                    loaded,
                     slot_pattern,
                     block,
                 };
@@ -371,20 +369,17 @@ impl<'src> Builder<'src> {
                 DocOrAst::Ast(ast)
             }
             Intermediate::HookSstore {
-                stored_value,
-                old_value,
+                stored,
+                old,
                 slot_pattern,
                 block,
             } => {
-                let (ty, name_new) = stored_value;
                 // we expect the old type to be the same as the new type
-                let name_old = old_value.map(|(_ty, name)| name.to_string());
                 let slot_pattern = self.owned_slice(slot_pattern).to_string();
                 let block = self.trimmed_block_slice(block).to_string();
                 let ast = Ast::HookSstore {
-                    name_new,
-                    name_old,
-                    ty,
+                    stored,
+                    old,
                     slot_pattern,
                     block,
                 };
@@ -392,16 +387,15 @@ impl<'src> Builder<'src> {
                 DocOrAst::Ast(ast)
             }
             Intermediate::HookCreate { created, block } => {
-                let (ty, name) = created;
                 let block = self.trimmed_block_slice(block).to_string();
-                let ast = Ast::HookCreate { name, ty, block };
+                let ast = Ast::HookCreate { created, block };
 
                 DocOrAst::Ast(ast)
             }
             Intermediate::HookOpcode {
                 opcode,
                 params,
-                returned_value,
+                returns,
                 block,
             } => {
                 let params = params.unwrap_or_default();
@@ -409,7 +403,7 @@ impl<'src> Builder<'src> {
                 let ast = Ast::HookOpcode {
                     opcode,
                     params,
-                    returned_value,
+                    returns,
                     block,
                 };
 

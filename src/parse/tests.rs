@@ -1,5 +1,7 @@
 mod cvl2;
 
+use std::iter::Iterator;
+
 use super::builder::Builder;
 use super::Token;
 use crate::CvlElement;
@@ -8,21 +10,6 @@ use assert_matches::assert_matches;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Report;
 use indoc::indoc;
-use std::iter::zip;
-
-fn to_param(ty: &str, name: &str) -> (String, String) {
-    (ty.to_string(), name.to_string())
-}
-
-/// this whole thing could have been replaced with `std::iter::eq`.
-fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
-    assert_eq!(expected_params.len(), actual_params.len());
-
-    for (expected, actual) in zip(expected_params, actual_params) {
-        assert_eq!(expected.0, actual.0, "parsed param type is different");
-        assert_eq!(expected.1, actual.1, "parsed param name is different");
-    }
-}
 
 fn parse_exactly_one(src: &str) -> Result<CvlElement, Report> {
     let mut parsed = Builder::new(src).build().wrap_err("parsing failed")?;
@@ -182,15 +169,17 @@ fn parsing_params() {
         }
     "};
 
-    let ast = parse_exactly_one(src).unwrap().ast;
-    assert_eq!(ast.name(), Some("goodMath"));
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Function { name, params, .. } = parsed.ast else { panic!() };
+    assert_eq!(name, "goodMath");
 
     let expected_params = [
-        to_param("uint", "a"),
-        to_param("int", "b"),
-        to_param("string", "c"),
+        Param::new("uint", "a"),
+        Param::new("int", "b"),
+        Param::new("string", "c"),
     ];
-    compare_params(&expected_params, ast.params().unwrap());
+    let params_are_equal = Iterator::eq(expected_params.iter(), params.iter());
+    assert!(params_are_equal);
 }
 
 #[test]
@@ -213,13 +202,14 @@ fn comments_in_element() {
                             ) { }
     "};
 
-    let ast = parse_exactly_one(src).unwrap().ast;
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Rule { name, params, .. } = parsed.ast else { panic!() };
 
-    assert_matches!(ast, Ast::Rule { .. });
-    assert_eq!(ast.name(), Some("ofLaw"));
+    assert_eq!(name, "ofLaw");
 
-    let expected_params = [to_param("string", "lapd"), to_param("string", "csny")];
-    compare_params(&expected_params, ast.params().unwrap());
+    let expected_params = [Param::new("string", "lapd"), Param::new("string", "csny")];
+    let params_are_equal = Iterator::eq(expected_params.iter(), params.iter());
+    assert!(params_are_equal);
 }
 
 #[test]

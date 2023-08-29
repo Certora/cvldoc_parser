@@ -29,10 +29,12 @@ impl Ast {
         self.supported_tags().contains(tag)
     }
 
-    fn defines_param(&self, param: &str) -> bool {
-        self.params()
-            .map(|params| params.iter().any(|(_ty, name)| name == param))
-            .unwrap_or(false)
+    fn defines_param(&self, param_name: &str) -> bool {
+        if let Some(params) = self.params() {
+            params.iter().any(|param| param.name == param_name)
+        } else {
+            false
+        }
     }
 }
 

@@ -157,10 +157,10 @@ fn hook_sload1() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { name, ty, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSload { loaded, slot_pattern, block } = parsed.ast else { panic!() };
 
-    assert_eq!(name, "value");
-    assert_eq!(ty, "uint256");
+    assert_eq!(loaded.name, "value");
+    assert_eq!(loaded.ty, "uint256");
     assert_eq!(slot_pattern, "a");
     assert_eq!(block, "require value == aGhost;");
 }
@@ -169,10 +169,10 @@ fn hook_sload1() {
 fn hook_sload2() {
     let src = "hook Sload uint256 imp (slot 50801780122331352337026042894847907698553222651959119521779622085092237899971/*0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3*/) STORAGE {}";
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { name, ty, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSload { loaded, slot_pattern, .. } = parsed.ast else { panic!() };
 
-    assert_eq!(name, "imp");
-    assert_eq!(ty, "uint256");
+    assert_eq!(loaded.name, "imp");
+    assert_eq!(loaded.ty, "uint256");
     assert_eq!(slot_pattern, "(slot 50801780122331352337026042894847907698553222651959119521779622085092237899971/*0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3*/)");
 }
 
@@ -184,10 +184,10 @@ fn hook_sload3() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { name, ty, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSload { loaded, slot_pattern, .. } = parsed.ast else { panic!() };
 
-    assert_eq!(name, "value");
-    assert_eq!(ty, "uint");
+    assert_eq!(loaded.name, "value");
+    assert_eq!(loaded.ty, "uint");
     assert_eq!(slot_pattern, "my_mapping_array[INDEX uint idx][KEY uint k]");
 }
 
@@ -199,10 +199,10 @@ fn hook_sload4() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { name, ty, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSload { loaded, slot_pattern, block } = parsed.ast else { panic!() };
 
-    assert_eq!(name, "owner");
-    assert_eq!(ty, "uint");
+    assert_eq!(loaded.name, "owner");
+    assert_eq!(loaded.ty, "uint");
     assert_eq!(
         slot_pattern,
         "_holderTokens[KEY address k].(offset 0).(offset 0 /* the array */)[INDEX uint i]"
@@ -216,11 +216,12 @@ fn hook_sstore1() {
         hook Sstore _list .(offset 0)[INDEX uint256 index] bytes32 newValue (bytes32 oldValue) STORAGE { }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { name_new, name_old, ty, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSstore { stored, old, slot_pattern, .. } = parsed.ast else { panic!() };
 
-    assert_eq!(name_new, "newValue");
-    assert_eq!(name_old.as_deref(), Some("oldValue"));
-    assert_eq!(ty, "bytes32");
+    assert_eq!(stored.name, "newValue");
+    let old = old.unwrap();
+    assert_eq!(old.name, "oldValue");
+    assert_eq!(old.ty, "bytes32");
     assert_eq!(slot_pattern, "_list .(offset 0)[INDEX uint256 index]");
 }
 
@@ -232,11 +233,11 @@ fn hook_sstore2() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { name_new, name_old, ty, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSstore { stored, old, slot_pattern, block } = parsed.ast else { panic!() };
 
-    assert_eq!(name_new, "value");
-    assert!(name_old.is_none());
-    assert_eq!(ty, "uint");
+    assert_eq!(stored.name, "value");
+    assert!(old.is_none());
+    assert_eq!(stored.ty, "uint");
     assert_eq!(slot_pattern, "_x");
     assert_eq!(block, "xmap[0] = value;");
 }
@@ -249,11 +250,11 @@ fn hook_sstore3() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { name_new, name_old, ty, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSstore { stored, old, slot_pattern, block } = parsed.ast else { panic!() };
 
-    assert_eq!(name_new, "v");
-    assert!(name_old.is_none());
-    assert_eq!(ty, "uint");
+    assert_eq!(stored.name, "v");
+    assert!(old.is_none());
+    assert_eq!(stored.ty, "uint");
     assert_eq!(
         slot_pattern,
         "g[KEY bytes b][INDEX uint256 j][INDEX uint256 k]"
@@ -267,10 +268,10 @@ fn hook_create() {
         hook Create (address createdAddress) { }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookCreate { name, ty, block } = parsed.ast else { panic!() };
+    let Ast::HookCreate { created, block } = parsed.ast else { panic!() };
 
-    assert_eq!(name, "createdAddress");
-    assert_eq!(ty, "address");
+    assert_eq!(created.name, "createdAddress");
+    assert_eq!(created.ty, "address");
     assert!(block.is_empty());
 }
 
@@ -282,16 +283,15 @@ fn hook_opcode1() {
         };
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookOpcode { opcode, params, returned_value, block } = parsed.ast else { panic!() };
+    let Ast::HookOpcode { opcode, params, returns, block } = parsed.ast else { panic!() };
 
     assert_eq!(opcode, "EXTCODESIZE");
     let param = params.into_iter().exactly_one().unwrap();
-    let (param_ty, param_name) = param;
-    assert_eq!(param_ty, "address");
-    assert_eq!(param_name, "addr");
-    let (returned_ty, returned_name) = returned_value.unwrap();
-    assert_eq!(returned_ty, "uint");
-    assert_eq!(returned_name, "v");
+    assert_eq!(param.ty, "address");
+    assert_eq!(param.name, "addr");
+    let returns = returns.unwrap();
+    assert_eq!(returns.ty, "uint");
+    assert_eq!(returns.name, "v");
     assert_eq!(block, "someUint = v;");
 }
 
@@ -303,12 +303,12 @@ fn hook_opcode2() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookOpcode { opcode, params, returned_value, block } = parsed.ast else { panic!() };
+    let Ast::HookOpcode { opcode, params, returns, block } = parsed.ast else { panic!() };
 
     assert_eq!(opcode, "GASPRICE");
     assert!(params.is_empty());
-    let (returned_ty, returned_name) = returned_value.unwrap();
-    assert_eq!(returned_ty, "uint");
-    assert_eq!(returned_name, "v");
+    let returns = returns.unwrap();
+    assert_eq!(returns.ty, "uint");
+    assert_eq!(returns.name, "v");
     assert_eq!(block, "someUint = v;");
 }

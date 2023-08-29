@@ -7,9 +7,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
     let cvldoc_slashed_line = just("///")
         .then_ignore(none_of('/').rewind())
         .then(take_until(newline_or_end()));
-    let cvldoc_slashed = cvldoc_slashed_line
-        .at_least_once()
-        .to(Token::CvlDocSlashed);
+    let cvldoc_slashed = cvldoc_slashed_line.at_least_once().to(Token::CvlDocSlashed);
     let cvldoc_starred = just("/**")
         .then_ignore(none_of("*/").rewind())
         .then(take_until(just("*/")))
@@ -90,42 +88,41 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         .map(Token::String)
         .delimited_by(just('"'), just('"'));
 
-    let keyword_or_ident = text::ident()
-        .map(|ident: String| match ident.as_str() {
-            "ghost" => Token::Ghost,
-            "definition" => Token::Definition,
-            "rule" => Token::Rule,
-            "invariant" => Token::Invariant,
-            "methods" => Token::Methods,
-            "function" => Token::Function,
-            "mapping" => Token::Mapping,
-            "returns" => Token::Returns,
-            "filtered" => Token::Filtered,
-            "axiom" => Token::Axiom,
-            "using" => Token::Using,
-            "hook" => Token::Hook,
-            "preserved" => Token::Preserved,
-            "import" => Token::Import,
-            "builtin" => Token::Builtin,
-            "use" => Token::Use,
-            "as" => Token::As,
-            "Sload" => Token::Sload,
-            "Sstore" => Token::Sstore,
-            "Create" => Token::Create,
-            "STORAGE" => Token::Storage,
-            "KEY" => Token::Key,
-            "INDEX" => Token::Index,
-            "slot" => Token::Slot,
-            "offset" => Token::Offset,
-            "exists" => Token::Exists,
-            "forall" => Token::ForAll,
-            "return" => Token::Return,
-            "override" => Token::Override,
-            "sig" => Token::Sig,
-            "description" => Token::Description,
-            "old" => Token::Old,
-            _ => Token::Ident(ident),
-        });
+    let keyword_or_ident = text::ident().map(|ident: String| match ident.as_str() {
+        "ghost" => Token::Ghost,
+        "definition" => Token::Definition,
+        "rule" => Token::Rule,
+        "invariant" => Token::Invariant,
+        "methods" => Token::Methods,
+        "function" => Token::Function,
+        "mapping" => Token::Mapping,
+        "returns" => Token::Returns,
+        "filtered" => Token::Filtered,
+        "axiom" => Token::Axiom,
+        "using" => Token::Using,
+        "hook" => Token::Hook,
+        "preserved" => Token::Preserved,
+        "import" => Token::Import,
+        "builtin" => Token::Builtin,
+        "use" => Token::Use,
+        "as" => Token::As,
+        "Sload" => Token::Sload,
+        "Sstore" => Token::Sstore,
+        "Create" => Token::Create,
+        "STORAGE" => Token::Storage,
+        "KEY" => Token::Key,
+        "INDEX" => Token::Index,
+        "slot" => Token::Slot,
+        "offset" => Token::Offset,
+        "exists" => Token::Exists,
+        "forall" => Token::ForAll,
+        "return" => Token::Return,
+        "override" => Token::Override,
+        "sig" => Token::Sig,
+        "description" => Token::Description,
+        "old" => Token::Old,
+        _ => Token::Ident(ident),
+    });
     let other = {
         // otherwise, this would capture block delimiters.
         static IMPORTANT_SIGILS: &[char] = &['{', '}'];

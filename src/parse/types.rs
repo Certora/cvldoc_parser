@@ -1,4 +1,5 @@
 use crate::util::Span;
+use crate::Param;
 use itertools::Itertools;
 use std::fmt::{Display, Formatter};
 
@@ -133,7 +134,7 @@ pub enum Intermediate {
     Methods(Span),
     Function {
         name: String,
-        params: Vec<(String, String)>,
+        params: Vec<Param>,
         returns: Option<String>,
         block: Span,
     },
@@ -150,19 +151,19 @@ pub enum Intermediate {
     },
     Rule {
         name: String,
-        params: Option<Vec<(String, String)>>,
+        params: Option<Vec<Param>>,
         filters: Option<Span>,
         block: Span,
     },
     Definition {
         name: String,
-        params: Vec<(String, String)>,
+        params: Vec<Param>,
         returns: String,
         definition: Span,
     },
     Invariant {
         name: String,
-        params: Vec<(String, String)>,
+        params: Vec<Param>,
         invariant: Span,
         filters: Option<Span>,
         proof: Option<Span>,
@@ -180,24 +181,24 @@ pub enum Intermediate {
         proof: Option<Span>,
     },
     HookSload {
-        loaded_value: (String, String),
+        loaded: Param,
         slot_pattern: Span,
         block: Span,
     },
     HookSstore {
-        stored_value: (String, String),
-        old_value: Option<(String, String)>,
+        stored: Param,
+        old: Option<Param>,
         slot_pattern: Span,
         block: Span,
     },
     HookCreate {
-        created: (String, String), // currently, the type is required to be `address`
+        created: Param, // currently, the type is required to be `address`
         block: Span,
     },
     HookOpcode {
         opcode: String, // we over-approximate the opcode to be any ident
-        params: Option<Vec<(String, String)>>,
-        returned_value: Option<(String, String)>,
+        params: Option<Vec<Param>>,
+        returns: Option<Param>,
         block: Span,
     },
     Using {

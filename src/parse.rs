@@ -156,7 +156,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .then(code_block())
             .map(
                 |((loaded_value, slot_pattern), block)| Intermediate::HookSload {
-                    loaded_value,
+                    loaded: loaded_value,
                     slot_pattern,
                     block,
                 },
@@ -174,8 +174,8 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .then(code_block())
             .map(
                 |(((slot_pattern, stored_value), old_value), block)| Intermediate::HookSstore {
-                    stored_value,
-                    old_value,
+                    stored: stored_value,
+                    old: old_value,
                     slot_pattern,
                     block,
                 },
@@ -196,7 +196,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                 |(((opcode, params), returned_value), block)| Intermediate::HookOpcode {
                     opcode,
                     params,
-                    returned_value,
+                    returns: returned_value,
                     block,
                 },
             );

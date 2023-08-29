@@ -1,6 +1,7 @@
 pub mod slot;
 
 use super::*;
+use crate::Param;
 use chumsky::prelude::*;
 use itertools::Itertools;
 use std::iter;
@@ -114,16 +115,15 @@ pub(super) fn unnamed_param_list() -> impl Parser<Token, Vec<String>, Error = Si
         .labelled("unnamed param list")
 }
 
-pub(super) fn named_param_list() -> impl Parser<Token, Vec<(String, String)>, Error = Simple<Token>>
-{
+pub(super) fn named_param_list() -> impl Parser<Token, Vec<Param>, Error = Simple<Token>> {
     named_param()
         .separated_by(just(Token::Comma))
         .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
         .labelled("named param list")
 }
 
-pub(super) fn named_param() -> impl Parser<Token, (String, String), Error = Simple<Token>> + Clone {
-    ty().then(ident())
+pub(super) fn named_param() -> impl Parser<Token, Param, Error = Simple<Token>> + Clone {
+    ty().then(ident()).map(|(ty, name)| Param::new(ty, name))
 }
 
 pub(super) fn num() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
