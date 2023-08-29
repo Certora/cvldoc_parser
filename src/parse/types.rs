@@ -133,7 +133,7 @@ pub enum Intermediate {
     Methods(Span),
     Function {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<(String, String)>,
         returns: Option<String>,
         block: Span,
     },
@@ -150,19 +150,19 @@ pub enum Intermediate {
     },
     Rule {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Option<Vec<(String, String)>>,
         filters: Option<Span>,
         block: Span,
     },
     Definition {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<(String, String)>,
         returns: String,
         definition: Span,
     },
     Invariant {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<(String, String)>,
         invariant: Span,
         filters: Option<Span>,
         proof: Option<Span>,

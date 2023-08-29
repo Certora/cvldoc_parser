@@ -10,15 +10,11 @@ use color_eyre::Report;
 use indoc::indoc;
 use std::iter::zip;
 
-macro_rules! param {
-    ($ty: expr) => {
-        ($ty.to_string(), None)
-    };
-    ($ty:expr, $name:expr) => {
-        ($ty.to_string(), Some($name.to_string()))
-    };
+fn to_param(ty: &str, name: &str) -> (String, String) {
+    (ty.to_string(), name.to_string())
 }
 
+/// this whole thing could have been replaced with `std::iter::eq`.
 fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
     assert_eq!(expected_params.len(), actual_params.len());
 
@@ -190,9 +186,9 @@ fn parsing_params() {
     assert_eq!(ast.name(), Some("goodMath"));
 
     let expected_params = [
-        param!("uint", "a"),
-        param!("int", "b"),
-        param!("string", "c"),
+        to_param("uint", "a"),
+        to_param("int", "b"),
+        to_param("string", "c"),
     ];
     compare_params(&expected_params, ast.params().unwrap());
 }
@@ -222,7 +218,7 @@ fn comments_in_element() {
     assert_matches!(ast, Ast::Rule { .. });
     assert_eq!(ast.name(), Some("ofLaw"));
 
-    let expected_params = [param!("string", "lapd"), param!("string", "csny")];
+    let expected_params = [to_param("string", "lapd"), to_param("string", "csny")];
     compare_params(&expected_params, ast.params().unwrap());
 }
 

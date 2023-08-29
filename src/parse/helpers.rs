@@ -108,12 +108,10 @@ pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone 
     choice((array_ty, mapping_ty(), call, ident())).labelled("type")
 }
 
-pub(super) fn param_list(
-) -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> {
-    ty().then(ident().or_not())
-        .separated_by(just(Token::Comma))
+pub(super) fn unnamed_param_list() -> impl Parser<Token, Vec<String>, Error = Simple<Token>> {
+    ty().separated_by(just(Token::Comma))
         .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
-        .labelled("param list")
+        .labelled("unnamed param list")
 }
 
 pub(super) fn named_param_list() -> impl Parser<Token, Vec<(String, String)>, Error = Simple<Token>>

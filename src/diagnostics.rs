@@ -31,12 +31,7 @@ impl Ast {
 
     fn defines_param(&self, param: &str) -> bool {
         self.params()
-            .map(|params| {
-                params
-                    .iter()
-                    .filter_map(|(_ty, name)| name.as_ref())
-                    .any(|name| name == param)
-            })
+            .map(|params| params.iter().any(|(_ty, name)| name == param))
             .unwrap_or(false)
     }
 }

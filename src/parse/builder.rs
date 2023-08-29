@@ -281,6 +281,7 @@ impl<'src> Builder<'src> {
                 block,
             } => {
                 let block = self.trimmed_block_slice(block).to_string();
+                let params = params.unwrap_or_default();
                 let filters = filters.map(|c| self.owned_slice(c));
 
                 let ast = Ast::Rule {

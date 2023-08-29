@@ -26,8 +26,7 @@ impl Debug for CvlElement {
     }
 }
 
-pub type Param = (Ty, Option<Ty>);
-pub type Ty = String;
+pub type Param = (String, String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ast {

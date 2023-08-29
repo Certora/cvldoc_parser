@@ -14,7 +14,7 @@ use types::{Intermediate, Style, Token};
 
 fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     let rule_decl = {
-        let optional_params = param_list().or_not().map(Option::unwrap_or_default);
+        let optional_params = named_param_list().or_not();
 
         just(Token::Rule)
             .ignore_then(ident())
@@ -32,7 +32,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     };
     let function_decl = just(Token::Function)
         .ignore_then(function_ident())
-        .then(param_list())
+        .then(named_param_list())
         .then(returns_type().or_not())
         .then(code_block())
         .map(
@@ -79,7 +79,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         just(Token::Invariant)
             .ignore_then(ident())
-            .then(param_list())
+            .then(named_param_list())
             .then(choice((single_invariant, with_filtered_block, with_proof)))
             .map(
                 |((name, params), Spans(invariant, filters, proof))| Intermediate::Invariant {
@@ -95,9 +95,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     };
 
     let ghost_decl = {
-        let unnamed_param_list =
-            param_list().map(|params| params.into_iter().map(|(ty, _)| ty).collect());
-        let optional_code_block = code_block().map(Some).or(just(Token::Semicolon).to(None));
+        let optional_code_block = choice((code_block().map(Some), semicolon_ender()));
 
         let with_mapping = just(Token::Ghost)
             .ignore_then(ty())
@@ -112,7 +110,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         let without_mapping = just(Token::Ghost)
             .ignore_then(ident())
-            .then(unnamed_param_list)
+            .then(unnamed_param_list())
             .then(returns_type())
             .then(optional_code_block)
             .map(|(((name, ty_list), returns), block)| Intermediate::Ghost {
@@ -134,7 +132,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         just(Token::Definition)
             .ignore_then(ident())
-            .then(param_list())
+            .then(named_param_list())
             .then(returns_type())
             .then_ignore(just(Token::Equals))
             .then(rhs)
