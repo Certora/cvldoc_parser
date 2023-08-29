@@ -9,22 +9,18 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         .then(take_until(newline_or_end()));
     let cvldoc_slashed = cvldoc_slashed_line
         .at_least_once()
-        .to(Token::CvlDocSlashed)
-        .boxed();
+        .to(Token::CvlDocSlashed);
     let cvldoc_starred = just("/**")
         .then_ignore(none_of("*/").rewind())
         .then(take_until(just("*/")))
-        .to(Token::CvlDocStarred)
-        .boxed();
+        .to(Token::CvlDocStarred);
     let freeform_slashed_line = just("////").then(take_until(newline_or_end()));
     let freeform_slashed = freeform_slashed_line
         .at_least_once()
-        .to(Token::FreeFormSlashed)
-        .boxed();
+        .to(Token::FreeFormSlashed);
     let freeform_starred = just("/***")
         .then(take_until(just("*/")))
-        .to(Token::FreeFormStarred)
-        .boxed();
+        .to(Token::FreeFormStarred);
     let freeform_starred_alternative = {
         //this is verbose and hideous
 
@@ -34,7 +30,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         let header = just("/***").then(just('*').repeated()).then(endings);
         let middle = just("/***").then(take_until(middle_endings));
 
-        middle.padded_by(header).to(Token::FreeFormStarred).boxed()
+        middle.padded_by(header).to(Token::FreeFormStarred)
     };
 
     let sigil = {
@@ -52,7 +48,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         };
         let arrow = just("=>").to(Token::Arrow);
 
-        choice((single_char, arrow)).boxed()
+        choice((single_char, arrow))
     };
 
     let single_line_comment = just("//")
@@ -72,7 +68,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
 
         proper_comment.to(Token::MultiLineComment)
     };
-    let comment = single_line_comment.or(multi_line_comment).boxed();
+    let comment = single_line_comment.or(multi_line_comment);
 
     let num = {
         let decimal = one_of("0123456789").repeated().at_least(1).collect();
@@ -85,15 +81,14 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             .then(hex_digits)
             .map(|(head, tail)| format!("{head}{tail}"));
 
-        choice((decimal, hex)).map(Token::Number).boxed()
+        choice((decimal, hex)).map(Token::Number)
     };
 
     let string = none_of('"')
         .at_least_once()
         .collect()
         .map(Token::String)
-        .delimited_by(just('"'), just('"'))
-        .boxed();
+        .delimited_by(just('"'), just('"'));
 
     let keyword_or_ident = text::ident()
         .map(|ident: String| match ident.as_str() {
@@ -130,8 +125,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             "description" => Token::Description,
             "old" => Token::Old,
             _ => Token::Ident(ident),
-        })
-        .boxed();
+        });
     let other = {
         // otherwise, this would capture block delimiters.
         static IMPORTANT_SIGILS: &[char] = &['{', '}'];
@@ -140,10 +134,9 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             .at_least_once()
             .collect()
             .map(Token::Other)
-            .boxed()
     };
 
-    choice([
+    choice((
         cvldoc_slashed,
         cvldoc_starred,
         freeform_slashed,
@@ -155,7 +148,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         string,
         keyword_or_ident,
         other,
-    ])
+    ))
     .map_with_span(|token, span| (token, span))
     .padded()
     .repeated()
