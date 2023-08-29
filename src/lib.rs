@@ -89,6 +89,30 @@ pub enum Ast {
         name: String,
         proof: Option<String>,
     },
+    HookSload {
+        name: String,
+        ty: String,
+        slot_pattern: String,
+        block: String,
+    },
+    HookSstore {
+        name_new: String,
+        name_old: Option<String>,
+        ty: String,
+        slot_pattern: String,
+        block: String,
+    },
+    HookCreate {
+        name: String,
+        ty: String,
+        block: String,
+    },
+    HookOpcode {
+        opcode: String,
+        params: Vec<(String, String)>,
+        returned_value: Option<(String, String)>,
+        block: String,
+    },
 }
 
 impl CvlElement {
@@ -249,6 +273,10 @@ impl Display for Ast {
             Ast::Import(..) => "import",
             Ast::Using { .. } => "using",
             Ast::UseRule { .. } | Ast::UseBuiltinRule { .. } | Ast::UseInvariant { .. } => "use",
+            Ast::HookSload { .. }
+            | Ast::HookSstore { .. }
+            | Ast::HookCreate { .. }
+            | Ast::HookOpcode { .. } => "hook",
         };
 
         write!(f, "{kind}")

@@ -75,14 +75,17 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
     let comment = single_line_comment.or(multi_line_comment).boxed();
 
     let num = {
-        static NUMS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        let numeric = filter(|c| NUMS.contains(c)).at_least_once();
-        let sign = one_of('-').or_not();
-        sign.padded()
-            .then(numeric)
-            .map(|(sign, numeric)| sign.into_iter().chain(numeric).collect())
-            .map(Token::Number)
-            .boxed()
+        let decimal = one_of("0123456789").repeated().at_least(1).collect();
+
+        let hex_digits = one_of("0123456789ABCDEFabcdef")
+            .repeated()
+            .at_least(1)
+            .collect::<String>();
+        let hex = just("0x")
+            .then(hex_digits)
+            .map(|(head, tail)| format!("{head}{tail}"));
+
+        choice((decimal, hex)).map(Token::Number).boxed()
     };
 
     let string = none_of('"')
@@ -111,6 +114,21 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             "builtin" => Token::Builtin,
             "use" => Token::Use,
             "as" => Token::As,
+            "Sload" => Token::Sload,
+            "Sstore" => Token::Sstore,
+            "Create" => Token::Create,
+            "STORAGE" => Token::Storage,
+            "KEY" => Token::Key,
+            "INDEX" => Token::Index,
+            "slot" => Token::Slot,
+            "offset" => Token::Offset,
+            "exists" => Token::Exists,
+            "forall" => Token::ForAll,
+            "return" => Token::Return,
+            "override" => Token::Override,
+            "sig" => Token::Sig,
+            "description" => Token::Description,
+            "old" => Token::Old,
             _ => Token::Ident(ident),
         })
         .boxed();

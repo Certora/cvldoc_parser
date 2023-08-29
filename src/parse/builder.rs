@@ -352,6 +352,68 @@ impl<'src> Builder<'src> {
                 spec_name,
             }),
             Intermediate::ParseError => bail!("parse errors are not parsed"),
+            Intermediate::HookSload {
+                loaded_value,
+                slot_pattern,
+                block,
+            } => {
+                let (ty, name) = loaded_value;
+                let slot_pattern = self.owned_slice(slot_pattern).to_string();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookSload {
+                    name,
+                    ty,
+                    slot_pattern,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookSstore {
+                stored_value,
+                old_value,
+                slot_pattern,
+                block,
+            } => {
+                let (ty, name_new) = stored_value;
+                // we expect the old type to be the same as the new type
+                let name_old = old_value.map(|(_ty, name)| name.to_string());
+                let slot_pattern = self.owned_slice(slot_pattern).to_string();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookSstore {
+                    name_new,
+                    name_old,
+                    ty,
+                    slot_pattern,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookCreate { created, block } => {
+                let (ty, name) = created;
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookCreate { name, ty, block };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookOpcode {
+                opcode,
+                params,
+                returned_value,
+                block,
+            } => {
+                let params = params.unwrap_or_default();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookOpcode {
+                    opcode,
+                    params,
+                    returned_value,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
         };
 
         Ok((process_result, span))

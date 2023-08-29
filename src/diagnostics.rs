@@ -17,7 +17,11 @@ impl Ast {
             | Ast::Using { .. }
             | Ast::UseRule { .. }
             | Ast::UseBuiltinRule { .. }
-            | Ast::UseInvariant { .. } => &[Dev],
+            | Ast::UseInvariant { .. }
+            | Ast::HookSload { .. }
+            | Ast::HookSstore { .. }
+            | Ast::HookCreate { .. }
+            | Ast::HookOpcode { .. } => &[Dev],
         }
     }
 

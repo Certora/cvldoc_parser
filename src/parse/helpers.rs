@@ -1,3 +1,5 @@
+pub mod slot;
+
 use super::*;
 use chumsky::prelude::*;
 use itertools::Itertools;
@@ -107,11 +109,27 @@ pub(super) fn ty() -> impl Parser<Token, String, Error = Simple<Token>> + Clone 
 }
 
 pub(super) fn param_list(
-) -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> + Clone {
+) -> impl Parser<Token, Vec<(String, Option<String>)>, Error = Simple<Token>> {
     ty().then(ident().or_not())
         .separated_by(just(Token::Comma))
         .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
         .labelled("param list")
+}
+
+pub(super) fn named_param_list() -> impl Parser<Token, Vec<(String, String)>, Error = Simple<Token>>
+{
+    named_param()
+        .separated_by(just(Token::Comma))
+        .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
+        .labelled("named param list")
+}
+
+pub(super) fn named_param() -> impl Parser<Token, (String, String), Error = Simple<Token>> + Clone {
+    ty().then(ident())
+}
+
+pub(super) fn num() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    select! { Token::Number(n) => n }
 }
 
 pub(super) fn code_block() -> impl Parser<Token, Span, Error = Simple<Token>> + Clone {

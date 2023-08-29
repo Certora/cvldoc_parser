@@ -8,6 +8,7 @@ pub mod types;
 
 use crate::util::Span;
 use chumsky::prelude::*;
+use helpers::slot::slot_pattern;
 use helpers::*;
 use types::{Intermediate, Style, Token};
 
@@ -149,6 +150,64 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .boxed()
     };
 
+    let hook_decl = {
+        let sload = just(Token::Sload)
+            .ignore_then(named_param())
+            .then(slot_pattern())
+            .then_ignore(just(Token::Storage))
+            .then(code_block())
+            .map(
+                |((loaded_value, slot_pattern), block)| Intermediate::HookSload {
+                    loaded_value,
+                    slot_pattern,
+                    block,
+                },
+            );
+
+        let sstore = just(Token::Sstore)
+            .ignore_then(slot_pattern())
+            .then(named_param())
+            .then(
+                named_param()
+                    .delimited_by(just(Token::RoundOpen), just(Token::RoundClose))
+                    .or_not(),
+            )
+            .then_ignore(just(Token::Storage))
+            .then(code_block())
+            .map(
+                |(((slot_pattern, stored_value), old_value), block)| Intermediate::HookSstore {
+                    stored_value,
+                    old_value,
+                    slot_pattern,
+                    block,
+                },
+            );
+
+        let create = just(Token::Create)
+            .ignore_then(
+                named_param().delimited_by(just(Token::RoundOpen), just(Token::RoundClose)),
+            )
+            .then(code_block())
+            .map(|(created, block)| Intermediate::HookCreate { created, block });
+
+        let opcode = ident()
+            .then(named_param_list().or_not())
+            .then(named_param().or_not())
+            .then(code_block())
+            .map(
+                |(((opcode, params), returned_value), block)| Intermediate::HookOpcode {
+                    opcode,
+                    params,
+                    returned_value,
+                    block,
+                },
+            );
+
+        just(Token::Hook)
+            .ignore_then(choice((sload, sstore, create, opcode)))
+            .labelled("hook statement")
+    };
+
     let import_stmt = just(Token::Import)
         .ignore_then(string())
         .then_ignore(just(Token::Semicolon))
@@ -194,6 +253,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         methods_decl,
         invariant_decl,
         ghost_decl,
+        hook_decl,
         definition_decl,
         import_stmt,
         use_stmt,

@@ -42,6 +42,21 @@ pub enum Token {
     Use,
     Builtin,
     As,
+    Sload,
+    Sstore,
+    Create,
+    Storage,
+    Key,
+    Index,
+    Exists,
+    ForAll,
+    Return,
+    Override,
+    Sig,
+    Description,
+    Old,
+    Offset,
+    Slot,
 }
 
 impl Display for Token {
@@ -75,6 +90,21 @@ impl Display for Token {
             Token::Import => write!(f, "import"),
             Token::Use => write!(f, "use"),
             Token::As => write!(f, "as"),
+            Token::Sload => write!(f, "Sload"),
+            Token::Sstore => write!(f, "Sstore"),
+            Token::Create => write!(f, "Create"),
+            Token::Storage => write!(f, "STORAGE"),
+            Token::Exists => write!(f, "exists"),
+            Token::ForAll => write!(f, "forall"),
+            Token::Return => write!(f, "return"),
+            Token::Override => write!(f, "override"),
+            Token::Sig => write!(f, "sig"),
+            Token::Description => write!(f, "description"),
+            Token::Old => write!(f, "old"),
+            Token::Key => write!(f, "KEY"),
+            Token::Index => write!(f, "INDEX"),
+            Token::Slot => write!(f, "slot"),
+            Token::Offset => write!(f, "offset"),
 
             Token::Ident(data) | Token::Other(data) | Token::Number(data) | Token::String(data) => {
                 write!(f, "{data}")
@@ -148,6 +178,27 @@ pub enum Intermediate {
     UseInvariant {
         name: String,
         proof: Option<Span>,
+    },
+    HookSload {
+        loaded_value: (String, String),
+        slot_pattern: Span,
+        block: Span,
+    },
+    HookSstore {
+        stored_value: (String, String),
+        old_value: Option<(String, String)>,
+        slot_pattern: Span,
+        block: Span,
+    },
+    HookCreate {
+        created: (String, String), // currently, the type is required to be `address`
+        block: Span,
+    },
+    HookOpcode {
+        opcode: String, // we over-approximate the opcode to be any ident
+        params: Option<Vec<(String, String)>>,
+        returned_value: Option<(String, String)>,
+        block: Span,
     },
     Using {
         contract_name: String,
