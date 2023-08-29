@@ -23,7 +23,7 @@ orbs:
 jobs:
   unit-tests:
     docker:
-      - image: cimg/rust:1.65.0
+      - image: cimg/rust:1.72.0
     steps:
       - checkout
       - run:

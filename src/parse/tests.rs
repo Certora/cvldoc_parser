@@ -170,7 +170,9 @@ fn parsing_params() {
     "};
 
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::Function { name, params, .. } = parsed.ast else { panic!() };
+    let Ast::Function { name, params, .. } = parsed.ast else {
+        panic!()
+    };
     assert_eq!(name, "goodMath");
 
     let expected_params = [
@@ -203,7 +205,9 @@ fn comments_in_element() {
     "};
 
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::Rule { name, params, .. } = parsed.ast else { panic!() };
+    let Ast::Rule { name, params, .. } = parsed.ast else {
+        panic!()
+    };
 
     assert_eq!(name, "ofLaw");
 
@@ -392,7 +396,9 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     let element = &parsed[0];
 
     let expected = "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties";
-    let Ast::FreeFormComment { text } = &element.ast else { panic!("should have been parsed as documentation"); };
+    let Ast::FreeFormComment { text } = &element.ast else {
+        panic!("should have been parsed as documentation");
+    };
     assert_eq!(text, expected);
 }
 
@@ -418,7 +424,9 @@ fn crlf() {
 
     let parsed = Builder::new(&src_with_crlf_encoding).build().unwrap();
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!()
+    };
 
     assert_eq!(
         text,
@@ -460,7 +468,9 @@ fn freeform_stars_without_text() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!()
+    };
     assert!(text.is_empty());
 }
 
@@ -553,7 +563,9 @@ fn blocks_where_brackets_are_not_separated_by_whitespace() {
     "};
 
     let element = parse_exactly_one(src).unwrap();
-    let Ast::Rule { filters, .. } = &element.ast else { panic!() };
+    let Ast::Rule { filters, .. } = &element.ast else {
+        panic!()
+    };
 
     assert_eq!(filters.as_ref().unwrap(), "{f -> !f.isView}");
 }
@@ -576,10 +588,14 @@ fn variable_char_lengths() {
     let parsed = Builder::new(src).build().unwrap();
     assert_eq!(parsed.len(), 3);
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!(); };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!();
+    };
     assert_eq!(text, "🔥🔥🔥💯 frfr");
 
-    let Ast::FreeFormComment { text } = &parsed[2].ast else { panic!(); };
+    let Ast::FreeFormComment { text } = &parsed[2].ast else {
+        panic!();
+    };
     assert_eq!(text, "Text");
 
     assert_eq!(parsed[0].raw(), "/***\n🔥🔥🔥💯 frfr\n*/");

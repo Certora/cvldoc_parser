@@ -1,7 +1,7 @@
 pub mod conversions;
 
 use cvldoc_parser_core::util::{ByteSpan, Span};
-use cvldoc_parser_core::{Ast, Param};
+use cvldoc_parser_core::Ast;
 use pyo3::prelude::*;
 use std::{fmt::Debug, sync::Arc};
 
@@ -87,8 +87,16 @@ impl AstPy {
     }
 
     #[getter]
-    pub fn params(&self) -> Vec<Param> {
-        self.0.params().map(Vec::from).unwrap_or_default()
+    pub fn params(&self) -> Vec<(String, String)> {
+        if let Some(params) = self.0.params() {
+            params
+                .iter()
+                .cloned()
+                .map(|param| (param.ty, param.name))
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 
     #[getter]

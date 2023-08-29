@@ -31,7 +31,12 @@ fn invariant_requires_semicolon() {
 
     let with_semicolon = "invariant validityOfTokens() true;";
     let parsed = parse_exactly_one(with_semicolon).unwrap();
-    let Ast::Invariant { name, invariant, .. } = parsed.ast else { panic!() };
+    let Ast::Invariant {
+        name, invariant, ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
     assert_eq!(name, "validityOfTokens");
     assert_eq!(invariant, "true");
 }
@@ -43,7 +48,9 @@ fn rule_keyword_is_mandatory() {
 
     let with_kw = "rule onlyOwnerCanDecrease() { }";
     let parsed = parse_exactly_one(with_kw).unwrap();
-    let Ast::Rule { name, .. } = parsed.ast else { panic!() };
+    let Ast::Rule { name, .. } = parsed.ast else {
+        panic!()
+    };
     assert_eq!(name, "onlyOwnerCanDecrease")
 }
 
@@ -52,7 +59,9 @@ fn rule_keyword_is_mandatory() {
 fn underscores_and_dots_in_function_names() {
     let func = "function _.hello.world_(int fizz, int buzz) {\nreturn\n}";
     let parsed = parse_exactly_one(func).unwrap();
-    let Ast::Function { name, .. } = parsed.ast else { panic!() };
+    let Ast::Function { name, .. } = parsed.ast else {
+        panic!()
+    };
 
     assert_eq!(name, "_.hello.world_");
 }
@@ -157,7 +166,14 @@ fn hook_sload1() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { loaded, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSload {
+        loaded,
+        slot_pattern,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(loaded.name, "value");
     assert_eq!(loaded.ty, "uint256");
@@ -169,7 +185,14 @@ fn hook_sload1() {
 fn hook_sload2() {
     let src = "hook Sload uint256 imp (slot 50801780122331352337026042894847907698553222651959119521779622085092237899971/*0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3*/) STORAGE {}";
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { loaded, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSload {
+        loaded,
+        slot_pattern,
+        ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(loaded.name, "imp");
     assert_eq!(loaded.ty, "uint256");
@@ -184,7 +207,14 @@ fn hook_sload3() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { loaded, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSload {
+        loaded,
+        slot_pattern,
+        ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(loaded.name, "value");
     assert_eq!(loaded.ty, "uint");
@@ -199,7 +229,14 @@ fn hook_sload4() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSload { loaded, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSload {
+        loaded,
+        slot_pattern,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(loaded.name, "owner");
     assert_eq!(loaded.ty, "uint");
@@ -216,7 +253,15 @@ fn hook_sstore1() {
         hook Sstore _list .(offset 0)[INDEX uint256 index] bytes32 newValue (bytes32 oldValue) STORAGE { }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { stored, old, slot_pattern, .. } = parsed.ast else { panic!() };
+    let Ast::HookSstore {
+        stored,
+        old,
+        slot_pattern,
+        ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(stored.name, "newValue");
     let old = old.unwrap();
@@ -233,7 +278,15 @@ fn hook_sstore2() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { stored, old, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSstore {
+        stored,
+        old,
+        slot_pattern,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(stored.name, "value");
     assert!(old.is_none());
@@ -250,7 +303,15 @@ fn hook_sstore3() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookSstore { stored, old, slot_pattern, block } = parsed.ast else { panic!() };
+    let Ast::HookSstore {
+        stored,
+        old,
+        slot_pattern,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(stored.name, "v");
     assert!(old.is_none());
@@ -268,7 +329,9 @@ fn hook_create() {
         hook Create (address createdAddress) { }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookCreate { created, block } = parsed.ast else { panic!() };
+    let Ast::HookCreate { created, block } = parsed.ast else {
+        panic!()
+    };
 
     assert_eq!(created.name, "createdAddress");
     assert_eq!(created.ty, "address");
@@ -283,7 +346,15 @@ fn hook_opcode1() {
         };
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookOpcode { opcode, params, returns, block } = parsed.ast else { panic!() };
+    let Ast::HookOpcode {
+        opcode,
+        params,
+        returns,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(opcode, "EXTCODESIZE");
     let param = params.into_iter().exactly_one().unwrap();
@@ -303,7 +374,15 @@ fn hook_opcode2() {
         }
     "};
     let parsed = parse_exactly_one(src).unwrap();
-    let Ast::HookOpcode { opcode, params, returns, block } = parsed.ast else { panic!() };
+    let Ast::HookOpcode {
+        opcode,
+        params,
+        returns,
+        block,
+    } = parsed.ast
+    else {
+        panic!()
+    };
 
     assert_eq!(opcode, "GASPRICE");
     assert!(params.is_empty());
