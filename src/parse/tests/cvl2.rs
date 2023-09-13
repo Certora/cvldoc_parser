@@ -1,8 +1,7 @@
-use std::iter;
-
 use super::*;
 use indoc::formatdoc;
 use itertools::Itertools;
+use std::iter;
 
 #[rustfmt::skip]
 #[test]
@@ -38,7 +37,7 @@ fn invariant_requires_semicolon() {
         panic!()
     };
     assert_eq!(name, "validityOfTokens");
-    assert_eq!(invariant, "true");
+    assert_eq!(invariant, "true;");
 }
 
 #[test]
@@ -73,7 +72,9 @@ fn import_stmt() {
 
     assert_eq!(
         parse_exactly_one(good).unwrap().ast,
-        Ast::Import("everything/but/the/kitchen/sink".to_owned())
+        Ast::Import {
+            imported: "everything/but/the/kitchen/sink".to_owned()
+        }
     );
     assert!(parse_zero(bad).is_ok());
     assert!(parse_fails_without_semicolon(iter::once(good)));
@@ -390,4 +391,125 @@ fn hook_opcode2() {
     assert_eq!(returns.ty, "uint");
     assert_eq!(returns.name, "v");
     assert_eq!(block, "someUint = v;");
+}
+
+#[test]
+fn invariant_span_is_correct() {
+    let src = indoc! {"
+        /**
+         * @title totalSupply_vs_balance
+         * @notice The total supply of the system si zero if and only if the balanceof the system is zero
+         * the variant has no parameters
+        */
+        invariant totalSupply_vs_balance()
+            totalSupply() == 0 <=> underlying.balanceOf(currentContract) == 0
+            {
+                preserved with(env e) {
+                    require e.msg.sender != currentContract;
+                }
+            }
+    "};
+
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Invariant {
+        invariant,
+        filters,
+        proof,
+        ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
+    assert_eq!(
+        invariant,
+        "totalSupply() == 0 <=> underlying.balanceOf(currentContract) == 0"
+    );
+
+    assert!(filters.is_none());
+
+    assert_eq!(
+        proof.unwrap(),
+        "preserved with(env e) {\n            require e.msg.sender != currentContract;\n        }"
+    );
+}
+
+#[test]
+fn invariant_span_is_correct2() {
+    let src = indoc! {"
+        /**
+         * @title totalSupply_LE_balance
+         * @notice invariant to assure that the total supply is always under the balance amount.
+         *  the variant has no parameters.
+         * @dev assume currentContract is initiated.
+         */
+        invariant totalSupply_LE_balance()
+            totalSupply() <= underlying.balanceOf(currentContract)
+            {
+                preserved with(env e) {
+                    require e.msg.sender != currentContract;
+                }
+            }
+    "};
+
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Invariant {
+        invariant,
+        filters,
+        proof,
+        ..
+    } = parsed.ast
+    else {
+        panic!()
+    };
+    assert_eq!(
+        invariant,
+        "totalSupply() <= underlying.balanceOf(currentContract)"
+    );
+
+    assert!(filters.is_none());
+
+    assert_eq!(
+        proof.unwrap(),
+        "preserved with(env e) {\n            require e.msg.sender != currentContract;\n        }"
+    );
+}
+
+#[test]
+fn invariant_span_is_correct3() {
+    let src = indoc! {r#"
+        /// A contract must only ever be in an initializing state while in the middle
+        /// of a transaction execution.
+        invariant notInitializing()
+            !initializing();
+        
+        
+        //////////////////////////////////////////////////////////////////////////////
+        //// Rules                                 /////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////
+        
+        /// @title Only initialized once
+        /// @notice An initializable contract with a function that inherits the
+        ///         initializer modifier must be initializable only once
+        rule initOnce() {
+            uint256 val; uint256 a; uint256 b;
+        
+            require isInitialized();
+            initialize@withrevert(val, a, b);
+            assert lastReverted, "contract must only be initialized once";
+        }
+    "#};
+
+    let parsed = Builder::new(src).build().unwrap();
+    // dbg!(parsed);
+    let [invariant, freeform, rule] = parsed.as_slice() else {
+        let len = parsed.len();
+        panic!("expected exactly 3 elements but got {len}")
+    };
+    let Ast::Invariant { .. } = invariant.ast else {
+        panic!()
+    };
+    let Ast::FreeFormComment { .. } = freeform.ast else {
+        panic!()
+    };
+    let Ast::Rule { .. } = rule.ast else { panic!() };
 }

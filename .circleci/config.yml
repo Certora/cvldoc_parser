@@ -2,11 +2,11 @@ defines:
   smoke-test: &smoke-test
     name: Smoke test
     command: |
-      wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+      wget https://raw.githubusercontent.com/Certora/cvldocTool/master/tests/basic_tests/definition_test.spec
 
       python -c "import cvldoc_parser
-      parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-      assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+      parsed = cvldoc_parser.parse(\"definition_test.spec\")
+      assert len(parsed) == 3, \"should parse to 3 elements\""
 
   store-and-persist:
     - store_artifacts: &store-wheel

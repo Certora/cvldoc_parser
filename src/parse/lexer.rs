@@ -7,14 +7,18 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
     let cvldoc_slashed_line = just("///")
         .then_ignore(none_of('/').rewind())
         .then(take_until(newline_or_end()));
-    let cvldoc_slashed = cvldoc_slashed_line.at_least_once().to(Token::CvlDocSlashed);
+    let cvldoc_slashed = cvldoc_slashed_line
+        .repeated()
+        .at_least(1)
+        .to(Token::CvlDocSlashed);
     let cvldoc_starred = just("/**")
         .then_ignore(none_of("*/").rewind())
         .then(take_until(just("*/")))
         .to(Token::CvlDocStarred);
     let freeform_slashed_line = just("////").then(take_until(newline_or_end()));
     let freeform_slashed = freeform_slashed_line
-        .at_least_once()
+        .repeated()
+        .at_least(1)
         .to(Token::FreeFormSlashed);
     let freeform_starred = just("/***")
         .then(take_until(just("*/")))
@@ -43,6 +47,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             ',' => Token::Comma,
             ';' => Token::Semicolon,
             '=' => Token::Equals,
+            '!' => Token::Excl,
         };
         let arrow = just("=>").to(Token::Arrow);
 
@@ -83,7 +88,8 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
     };
 
     let string = none_of('"')
-        .at_least_once()
+        .repeated()
+        .at_least(1)
         .collect()
         .map(Token::String)
         .delimited_by(just('"'), just('"'));
@@ -128,7 +134,8 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         static IMPORTANT_SIGILS: &[char] = &['{', '}'];
 
         filter(|ch: &char| !ch.is_ascii_whitespace() && !IMPORTANT_SIGILS.contains(ch))
-            .at_least_once()
+            .repeated()
+            .at_least(1)
             .collect()
             .map(Token::Other)
     };

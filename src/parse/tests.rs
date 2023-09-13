@@ -5,11 +5,12 @@ use std::iter::Iterator;
 use super::builder::Builder;
 use super::Token;
 use crate::CvlElement;
-use crate::{util::SingleElement, Ast, Param, TagKind};
+use crate::{Ast, Param, TagKind};
 use assert_matches::assert_matches;
 use color_eyre::eyre::{bail, Context};
 use color_eyre::Report;
 use indoc::indoc;
+use itertools::Itertools;
 
 fn parse_exactly_one(src: &str) -> Result<CvlElement, Report> {
     let mut parsed = Builder::new(src).build().wrap_err("parsing failed")?;
@@ -108,12 +109,7 @@ fn doc_tag_kinds() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let tag_kinds = parsed[0]
-        .doc
-        .iter()
-        .flatten()
-        .cloned()
-        .map(|doc_tag| doc_tag.kind);
+    let tag_kinds = parsed[0].doc.iter().map(|doc_tag| &doc_tag.kind);
     let expected = [
         TagKind::Notice,
         TagKind::Title,
@@ -121,7 +117,7 @@ fn doc_tag_kinds() {
         TagKind::Notice,
         TagKind::Dev,
     ];
-    assert!(expected.into_iter().eq(tag_kinds));
+    assert!(expected.iter().eq(tag_kinds));
 }
 
 // #[test]
@@ -280,7 +276,7 @@ fn commented_out_doc_followed_by_non_commented() {
     "#};
 
     let cvl_element = parse_exactly_one(src).unwrap();
-    let element_doc = cvl_element.doc.unwrap().single_element();
+    let element_doc = cvl_element.doc.iter().exactly_one().unwrap();
 
     assert_eq!(element_doc.kind, TagKind::Title);
     assert_eq!(cvl_element.ast.name(), Some("bar"));
@@ -366,7 +362,7 @@ fn rules_without_parameters() {
 
     let element = parse_exactly_one(src).unwrap();
 
-    assert!(!element.doc.unwrap().is_empty());
+    assert!(!element.doc.is_empty());
     assert_matches!(element.ast, Ast::Rule { .. });
 }
 

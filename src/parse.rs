@@ -28,7 +28,6 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                 block,
             })
             .labelled("rule declaration")
-            .boxed()
     };
     let function_decl = just(Token::Function)
         .ignore_then(function_ident())
@@ -59,10 +58,9 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
 
         struct Spans(Span, Option<Span>, Option<Span>);
 
-        let single_invariant = none_of(Token::Semicolon)
-            .at_least_once()
-            .map_with_span(|_, span| Spans(span, None, None))
-            .then_ignore(just(Token::Semicolon));
+        let single_invariant = single_expr()
+            .then(just(Token::Semicolon))
+            .map_with_span(|_, span| Spans(span, None, None));
 
         let with_filtered_block = none_of(Token::Filtered)
             .then_ignore(just(Token::Filtered).rewind())
@@ -71,8 +69,8 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .then(code_block().or_not())
             .map(|((inv, filtered), proof)| Spans(inv, Some(filtered), proof));
 
-        let with_proof = none_of(Token::CurlyOpen)
-            .then_ignore(just(Token::CurlyOpen).rewind())
+        let with_proof = single_expr()
+            .or_not()
             .map_with_span(|_, span| span)
             .then(code_block())
             .map(|(inv, proof)| Spans(inv, None, Some(proof)));
@@ -91,16 +89,13 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                 },
             )
             .labelled("invariant declaration")
-            .boxed()
     };
 
     let ghost_decl = {
-        let optional_code_block = choice((code_block().map(Some), semicolon_ender()));
-
         let with_mapping = just(Token::Ghost)
             .ignore_then(ty())
             .then(ident())
-            .then(optional_code_block.clone())
+            .then(optional_code_block())
             .map(|((mapping, name), block)| Intermediate::GhostMapping {
                 mapping,
                 name,
@@ -112,7 +107,7 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             .ignore_then(ident())
             .then(unnamed_param_list())
             .then(returns_type())
-            .then(optional_code_block)
+            .then(optional_code_block())
             .map(|(((name, ty_list), returns), block)| Intermediate::Ghost {
                 name,
                 ty_list,
@@ -121,12 +116,13 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
             })
             .labelled("ghost declaration (without mapping)");
 
-        with_mapping.or(without_mapping).boxed()
+        with_mapping.or(without_mapping)
     };
 
     let definition_decl = {
         let rhs = none_of(Token::Semicolon)
-            .at_least_once()
+            .repeated()
+            .at_least(1)
             .then_ignore(just(Token::Semicolon))
             .map_with_span(|_, span| span);
 
@@ -145,7 +141,6 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
                 },
             )
             .labelled("definition declaration")
-            .boxed()
     };
 
     let hook_decl = {
@@ -257,20 +252,6 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
         use_stmt,
         using_stmt,
     ))
-}
-
-/// here for backwards-compatibility with CVL1
-/// assumes valid endings of the invariant keyword have already been tried
-#[allow(unused)]
-fn invariant_expression_without_semicolon() -> impl Parser<Token, Span, Error = Simple<Token>> {
-    let input_end = end().ignored();
-
-    let stop = one_of(INVARIANT_STOP_TOKENS).ignored().or(input_end);
-
-    none_of(INVARIANT_STOP_TOKENS)
-        .at_least_once()
-        .then_ignore(stop.rewind())
-        .map_with_span(|_, span| span)
 }
 
 fn cvl_parser() -> impl Parser<Token, Vec<(Intermediate, Span)>, Error = Simple<Token>> {

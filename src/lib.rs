@@ -2,16 +2,18 @@ pub mod diagnostics;
 pub mod parse;
 pub mod util;
 
+use serde::Serialize;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
 use util::{ByteSpan, Span};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct CvlElement {
-    pub doc: Option<Vec<DocumentationTag>>,
+    pub doc: Vec<DocumentationTag>,
     pub ast: Ast,
     pub element_span: Span,
     pub doc_span: Option<Span>,
+    #[serde(skip)]
     pub src: Arc<str>,
 }
 
@@ -26,7 +28,7 @@ impl Debug for CvlElement {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Param {
     pub ty: String,
     pub name: String,
@@ -40,7 +42,8 @@ impl Param {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "type")]
 pub enum Ast {
     FreeFormComment {
         text: String,
@@ -70,7 +73,7 @@ pub enum Ast {
         returns: String,
         definition: String,
     },
-    Ghost {
+    GhostFunction {
         name: String,
         ty_list: Vec<String>,
         returns: String,
@@ -84,7 +87,9 @@ pub enum Ast {
     Methods {
         block: String,
     },
-    Import(String),
+    Import {
+        imported: String,
+    },
     Using {
         contract_name: String,
         spec_name: String,
@@ -125,14 +130,14 @@ pub enum Ast {
 
 impl CvlElement {
     pub fn title(&self) -> Option<String> {
-        let from_title_tag = self.doc.iter().flatten().find_map(|tag| {
-            if tag.kind == TagKind::Title {
+        let from_title_tag = self.doc.iter().find_map(|tag| {
+            if matches!(tag.kind, TagKind::Title) {
                 Some(tag.description.clone())
             } else {
                 None
             }
         });
-        let from_name = || self.ast.name().map(String::from);
+        let from_name = || self.ast.name().map(ToOwned::to_owned);
 
         from_title_tag.or_else(from_name)
     }
@@ -154,7 +159,7 @@ impl CvlElement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DocumentationTag {
     pub kind: TagKind,
     pub description: String,
@@ -192,7 +197,7 @@ impl DocumentationTag {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Default, Serialize)]
 pub enum TagKind {
     Title,
     #[default]
@@ -275,10 +280,10 @@ impl Display for Ast {
             Ast::Invariant { .. } => "invariant",
             Ast::Function { .. } => "function",
             Ast::Definition { .. } => "definition",
-            Ast::Ghost { .. } | Ast::GhostMapping { .. } => "ghost",
+            Ast::GhostFunction { .. } | Ast::GhostMapping { .. } => "ghost",
             Ast::Methods { .. } => "methods",
             Ast::FreeFormComment { .. } => "freeform comment",
-            Ast::Import(..) => "import",
+            Ast::Import { .. } => "import",
             Ast::Using { .. } => "using",
             Ast::UseRule { .. } | Ast::UseBuiltinRule { .. } | Ast::UseInvariant { .. } => "use",
             Ast::HookSload { .. }
@@ -298,7 +303,7 @@ impl Ast {
             | Ast::Invariant { name, .. }
             | Ast::Function { name, .. }
             | Ast::Definition { name, .. }
-            | Ast::Ghost { name, .. }
+            | Ast::GhostFunction { name, .. }
             | Ast::GhostMapping { name, .. } => Some(name.as_str()),
             _ => None,
         }
@@ -325,7 +330,7 @@ impl Ast {
             | Ast::HookOpcode { block, .. } => Some(block.as_str()),
 
             Ast::Invariant { proof: block, .. }
-            | Ast::Ghost { axioms: block, .. }
+            | Ast::GhostFunction { axioms: block, .. }
             | Ast::GhostMapping { axioms: block, .. } => block.as_ref().map(String::as_str),
 
             _ => None,
@@ -334,15 +339,17 @@ impl Ast {
 
     pub fn returns(&self) -> Option<&str> {
         match self {
-            Ast::Function { returns, .. } => returns.as_ref().map(String::as_str),
-            Ast::Definition { returns, .. } | Ast::Ghost { returns, .. } => Some(returns.as_str()),
+            Ast::Function { returns, .. } => returns.as_deref(),
+            Ast::Definition { returns, .. } | Ast::GhostFunction { returns, .. } => {
+                Some(returns.as_str())
+            }
             _ => None,
         }
     }
 
     pub fn ty_list(&self) -> Option<&[String]> {
         match self {
-            Ast::Ghost { ty_list, .. } => Some(ty_list),
+            Ast::GhostFunction { ty_list, .. } => Some(ty_list),
             _ => None,
         }
     }

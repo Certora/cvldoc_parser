@@ -1,41 +1,63 @@
 mod wrapper_structs;
 
-use color_eyre::eyre::eyre;
-use color_eyre::eyre::WrapErr;
 use cvldoc_parser_core::parse::builder::Builder;
-use itertools::Itertools;
+use pyo3::exceptions::{PyFileNotFoundError, PyOSError, PyRuntimeError};
 use pyo3::prelude::*;
+use std::fs::read_to_string;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+use wrapper_structs::{AstKindPy, AstPy, CvlElementPy, DocumentationTagPy, SpanPy};
 
-/// takes a list of file paths as strings, returns a list of parsed cvldocs for each path,
-/// if any cvldocs were parsed for the path, otherwise returns an empty list for that path.
-/// currently panics if a file fails to open, or fails to read.
+fn file_contents(path: &Path) -> PyResult<String> {
+    read_to_string(path).map_err(|e| handle_io_error(path, e))
+}
+
+fn handle_io_error(path: &Path, e: std::io::Error) -> PyErr {
+    let display = path.display();
+
+    match e.kind() {
+        ErrorKind::NotFound => {
+            let desc = format!("file not found: {display}");
+            PyFileNotFoundError::new_err(desc)
+        }
+        kind => {
+            let desc = format!("got error while reading file {display}: {kind}");
+            PyOSError::new_err(desc)
+        }
+    }
+}
+
+/// takes a path to a file a(s a string). returns a list of parsed cvldocs,
+/// or an appropriate error in the case of a failure.
+///
+/// throws:
+/// - `OSError` if file reading failed.
+/// - `RuntimeError` if source code parsing failed.
 #[pyfunction]
-fn parse(paths: Vec<&str>) -> Vec<Vec<wrapper_structs::CvlElementPy>> {
-    let elements_in_file = |file_path: &str| {
-        let src = std::fs::read_to_string(file_path)
-            .wrap_err_with(|| eyre!("file does not exist: {file_path}"))?;
+fn parse(py: Python, path: PathBuf) -> PyResult<Vec<CvlElementPy>> {
+    let src = file_contents(path.as_path())?;
 
-        Builder::new(&src)
-            .build()
-            .map(|rust_elements| rust_elements.into_iter().map(Into::into).collect())
-    };
+    let elements = Builder::new(&src).build().map_err(|_| {
+        let display = path.display();
+        let desc = format!("failed to parse source file: {display}");
+        PyRuntimeError::new_err(desc)
+    })?;
 
-    paths
+    elements
         .into_iter()
-        .map(elements_in_file)
-        .try_collect()
-        .unwrap() //TODO: figure out how to deal with errors here
+        .map(|cvl_element| CvlElementPy::new(py, cvl_element))
+        .collect()
 }
 
 #[pymodule]
-fn cvldoc_parser(_py: Python, m: &PyModule) -> PyResult<()> {
-    use wrapper_structs::*;
+fn cvldoc_parser(_py: Python, module: &PyModule) -> PyResult<()> {
+    module.add_class::<CvlElementPy>()?;
+    module.add_class::<AstPy>()?;
+    module.add_class::<AstKindPy>()?;
+    module.add_class::<SpanPy>()?;
+    module.add_class::<DocumentationTagPy>()?;
 
-    m.add_class::<CvlElementPy>()?;
-    m.add_class::<AstPy>()?;
-    m.add_class::<SpanPy>()?;
-    m.add_class::<DocumentationTagPy>()?;
+    wrap_pyfunction!(parse, module).and_then(|function| module.add_function(function))?;
 
-    m.add_function(wrap_pyfunction!(parse, m)?)?;
     Ok(())
 }

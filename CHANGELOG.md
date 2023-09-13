@@ -1,4 +1,13 @@
 # Changelog
+## [2.0.0] - 2023-09-13
+### Added
+- Support parsing of `hook`, `use`, `using`, `import` statements.
+- Python module API has been simplified.
+### Changed
+- CVL2 syntax is now enforced. Parsing of code which is not compliant with CVL2 has been removed.
+### Fixed
+- Some issues with `Invariant` parsing have been fixed.
+
 ## [1.0.3] - 2023-05-27
 ### Fixed
 - Fix issue that could cause infinite recursion on certain input

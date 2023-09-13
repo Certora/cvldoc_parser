@@ -6,6 +6,7 @@ use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
+use core::panic;
 use std::sync::Arc;
 
 struct DocumentationBuilder<'src> {
@@ -161,30 +162,43 @@ impl<'src> Builder<'src> {
         &self,
         parsing_results: Vec<(Intermediate, Span)>,
     ) -> Result<Vec<CvlElement>> {
-        let mut current_doc = None;
-        let mut current_doc_span = None;
         let src_ref = Arc::from(self.0);
 
-        let elements = parsing_results
-            .into_iter()
-            .filter_map(|spanned_intermediate| self.process_intermediate(spanned_intermediate).ok())
-            .filter_map(|(doc_or_ast, span)| match doc_or_ast {
+        let mut elements = Vec::new();
+        let mut current_doc: Option<Vec<DocumentationTag>> = None;
+        let mut current_doc_span: Option<Span> = None;
+
+        for parse_result in parsing_results {
+            let Ok((doc_or_ast, span)) = self.process_intermediate(parse_result) else {
+                continue;
+            };
+
+            match doc_or_ast {
+                DocOrAst::Ast(ast @ Ast::FreeFormComment { .. }) => {
+                    // assert!(current_doc.is_none(), "documentation followed by freeform");
+                    elements.push(CvlElement {
+                        doc: Vec::new(),
+                        ast,
+                        element_span: span,
+                        doc_span: None,
+                        src: Arc::clone(&src_ref),
+                    });
+                }
                 DocOrAst::Ast(ast) => {
-                    let (doc, doc_span) = if matches!(ast, Ast::FreeFormComment { .. }) {
-                        // assert!(current_doc.is_none(), "documentation followed by freeform");
-                        (None, None)
-                    } else {
-                        (current_doc.take(), current_doc_span.take())
+                    let (doc, doc_span) = match (current_doc.take(), current_doc_span.take()) {
+                        (Some(doc), Some(doc_span)) => (doc, Some(doc_span)),
+                        (None, None) => (Vec::new(), None),
+                        (Some(_), None) => panic!("got doc without doc_span"),
+                        (None, Some(_)) => panic!("got doc_span without doc"),
                     };
 
-                    let cvl_element = CvlElement {
+                    elements.push(CvlElement {
                         doc,
                         ast,
                         element_span: span,
                         doc_span,
                         src: Arc::clone(&src_ref),
-                    };
-                    Some(cvl_element)
+                    });
                 }
                 DocOrAst::Doc(doc) => {
                     // assert!(
@@ -193,10 +207,10 @@ impl<'src> Builder<'src> {
                     // );
                     current_doc = Some(doc);
                     current_doc_span = Some(span);
-                    None
+                    continue;
                 }
-            })
-            .collect();
+            }
+        }
 
         Ok(elements)
     }
@@ -265,7 +279,7 @@ impl<'src> Builder<'src> {
                 axioms,
             } => {
                 let axioms = axioms.map(|c| self.owned_slice(c));
-                let ast = Ast::Ghost {
+                let ast = Ast::GhostFunction {
                     name,
                     ty_list,
                     returns,
@@ -331,7 +345,7 @@ impl<'src> Builder<'src> {
 
                 DocOrAst::Ast(ast)
             }
-            Intermediate::Import(imported) => DocOrAst::Ast(Ast::Import(imported)),
+            Intermediate::Import(imported) => DocOrAst::Ast(Ast::Import { imported }),
             Intermediate::UseBuiltinRule { name } => DocOrAst::Ast(Ast::UseBuiltinRule { name }),
             Intermediate::UseRule { name, filters } => {
                 let filters = filters.map(|c| self.owned_slice(c));
