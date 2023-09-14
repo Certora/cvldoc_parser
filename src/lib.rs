@@ -2,16 +2,19 @@ pub mod diagnostics;
 pub mod parse;
 pub mod util;
 
+use color_eyre::eyre::bail;
+use serde::Serialize;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
 use util::{ByteSpan, Span};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct CvlElement {
-    pub doc: Option<Vec<DocumentationTag>>,
+    pub doc: Vec<DocumentationTag>,
     pub ast: Ast,
     pub element_span: Span,
     pub doc_span: Option<Span>,
+    #[serde(skip)]
     pub src: Arc<str>,
 }
 
@@ -20,16 +23,28 @@ impl Debug for CvlElement {
         f.debug_struct("CvlElement")
             .field("doc", &self.doc)
             .field("ast", &self.ast)
-            .field("element_span", &self.element_span)
-            .field("doc_span", &self.doc_span)
+            // .field("element_span", &self.element_span)
+            // .field("doc_span", &self.doc_span)
             .finish()
     }
 }
 
-pub type Param = (Ty, Option<Ty>);
-pub type Ty = String;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Param {
+    pub ty: String,
+    pub name: String,
+}
+impl Param {
+    pub fn new<S1: ToString, S2: ToString>(ty: S1, name: S2) -> Param {
+        Param {
+            ty: ty.to_string(),
+            name: name.to_string(),
+        }
+    }
+}
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "type")]
 pub enum Ast {
     FreeFormComment {
         text: String,
@@ -59,7 +74,7 @@ pub enum Ast {
         returns: String,
         definition: String,
     },
-    Ghost {
+    GhostFunction {
         name: String,
         ty_list: Vec<String>,
         returns: String,
@@ -73,18 +88,57 @@ pub enum Ast {
     Methods {
         block: String,
     },
+    Import {
+        imported: String,
+    },
+    Using {
+        contract_name: String,
+        spec_name: String,
+    },
+    UseRule {
+        name: String,
+        filters: Option<String>,
+    },
+    UseBuiltinRule {
+        name: String,
+    },
+    UseInvariant {
+        name: String,
+        proof: Option<String>,
+    },
+    HookSload {
+        loaded: Param,
+        slot_pattern: String,
+        block: String,
+    },
+    HookSstore {
+        stored: Param,
+        old: Option<Param>,
+        slot_pattern: String,
+        block: String,
+    },
+    HookCreate {
+        created: Param,
+        block: String,
+    },
+    HookOpcode {
+        opcode: String,
+        params: Vec<Param>,
+        returns: Option<Param>,
+        block: String,
+    },
 }
 
 impl CvlElement {
     pub fn title(&self) -> Option<String> {
-        let from_title_tag = self.doc.iter().flatten().find_map(|tag| {
-            if tag.kind == TagKind::Title {
+        let from_title_tag = self.doc.iter().find_map(|tag| {
+            if matches!(tag.kind, TagKind::Title) {
                 Some(tag.description.clone())
             } else {
                 None
             }
         });
-        let from_name = || self.ast.name().map(String::from);
+        let from_name = || self.ast.name().map(ToOwned::to_owned);
 
         from_title_tag.or_else(from_name)
     }
@@ -106,7 +160,7 @@ impl CvlElement {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DocumentationTag {
     pub kind: TagKind,
     pub description: String,
@@ -144,7 +198,7 @@ impl DocumentationTag {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Default, Serialize)]
 pub enum TagKind {
     Title,
     #[default]
@@ -153,69 +207,40 @@ pub enum TagKind {
     Param,
     Return,
     Formula,
-    Unexpected(String),
 }
 
-impl Display for TagKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
+impl TagKind {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
             TagKind::Title => "title",
             TagKind::Notice => "notice",
             TagKind::Dev => "dev",
             TagKind::Param => "param",
             TagKind::Return => "return",
             TagKind::Formula => "formula",
-            TagKind::Unexpected(s) => s.as_str(),
-        };
-        write!(f, "{s}")
+        }
     }
-}
 
-impl TagKind {
     pub(crate) fn len(&self) -> usize {
-        let len_without_ampersat = match self {
-            TagKind::Dev => 3,
-            TagKind::Title | TagKind::Param => 5,
-            TagKind::Notice | TagKind::Return => 6,
-            TagKind::Formula => 7,
-            TagKind::Unexpected(s) => s.len(),
-        };
-
+        let len_without_ampersat = self.as_str().len();
         len_without_ampersat + 1
     }
 }
 
-impl From<&str> for TagKind {
-    fn from(mut s: &str) -> Self {
-        if let Some(trimmed) = s.strip_prefix('@') {
-            s = trimmed;
-        }
+impl TryFrom<&str> for TagKind {
+    type Error = color_eyre::Report;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let s = s.strip_prefix('@').unwrap_or(s);
+
         match s {
-            "title" => TagKind::Title,
-            "notice" => TagKind::Notice,
-            "dev" => TagKind::Dev,
-            "param" => TagKind::Param,
-            "return" => TagKind::Return,
-            "formula" => TagKind::Formula,
-            _ => TagKind::Unexpected(s.to_string()),
-        }
-    }
-}
-
-impl From<String> for TagKind {
-    fn from(mut s: String) -> Self {
-        if s.starts_with('@') {
-            s.remove(0);
-        }
-
-        match s.as_str() {
-            "title" => TagKind::Title,
-            "notice" => TagKind::Notice,
-            "dev" => TagKind::Dev,
-            "param" => TagKind::Param,
-            "return" => TagKind::Return,
-            "formula" => TagKind::Formula,
-            _ => TagKind::Unexpected(s),
+            "title" => Ok(TagKind::Title),
+            "notice" => Ok(TagKind::Notice),
+            "dev" => Ok(TagKind::Dev),
+            "param" => Ok(TagKind::Param),
+            "return" => Ok(TagKind::Return),
+            "formula" => Ok(TagKind::Formula),
+            _ => bail!("unrecognized tag: {s}"),
         }
     }
 }
@@ -227,10 +252,16 @@ impl Display for Ast {
             Ast::Invariant { .. } => "invariant",
             Ast::Function { .. } => "function",
             Ast::Definition { .. } => "definition",
-            Ast::Ghost { .. } | Ast::GhostMapping { .. } => "ghost",
+            Ast::GhostFunction { .. } | Ast::GhostMapping { .. } => "ghost",
             Ast::Methods { .. } => "methods",
-
             Ast::FreeFormComment { .. } => "freeform comment",
+            Ast::Import { .. } => "import",
+            Ast::Using { .. } => "using",
+            Ast::UseRule { .. } | Ast::UseBuiltinRule { .. } | Ast::UseInvariant { .. } => "use",
+            Ast::HookSload { .. }
+            | Ast::HookSstore { .. }
+            | Ast::HookCreate { .. }
+            | Ast::HookOpcode { .. } => "hook",
         };
 
         write!(f, "{kind}")
@@ -244,7 +275,7 @@ impl Ast {
             | Ast::Invariant { name, .. }
             | Ast::Function { name, .. }
             | Ast::Definition { name, .. }
-            | Ast::Ghost { name, .. }
+            | Ast::GhostFunction { name, .. }
             | Ast::GhostMapping { name, .. } => Some(name.as_str()),
             _ => None,
         }
@@ -262,30 +293,35 @@ impl Ast {
 
     pub fn block(&self) -> Option<&str> {
         match self {
-            Ast::Rule { block, .. } | Ast::Function { block, .. } | Ast::Methods { block } => {
-                Some(block.as_str())
-            }
+            Ast::Rule { block, .. }
+            | Ast::Function { block, .. }
+            | Ast::Methods { block }
+            | Ast::HookSload { block, .. }
+            | Ast::HookSstore { block, .. }
+            | Ast::HookCreate { block, .. }
+            | Ast::HookOpcode { block, .. } => Some(block.as_str()),
 
             Ast::Invariant { proof: block, .. }
-            | Ast::Ghost { axioms: block, .. }
+            | Ast::GhostFunction { axioms: block, .. }
             | Ast::GhostMapping { axioms: block, .. } => block.as_ref().map(String::as_str),
 
-            Ast::Definition { .. } => None,
             _ => None,
         }
     }
 
     pub fn returns(&self) -> Option<&str> {
         match self {
-            Ast::Function { returns, .. } => returns.as_ref().map(String::as_str),
-            Ast::Definition { returns, .. } | Ast::Ghost { returns, .. } => Some(returns.as_str()),
+            Ast::Function { returns, .. } => returns.as_deref(),
+            Ast::Definition { returns, .. } | Ast::GhostFunction { returns, .. } => {
+                Some(returns.as_str())
+            }
             _ => None,
         }
     }
 
     pub fn ty_list(&self) -> Option<&[String]> {
         match self {
-            Ast::Ghost { ty_list, .. } => Some(ty_list),
+            Ast::GhostFunction { ty_list, .. } => Some(ty_list),
             _ => None,
         }
     }

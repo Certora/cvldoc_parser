@@ -1,25 +1,31 @@
+mod cvl2;
+
 use super::builder::Builder;
 use super::Token;
-use crate::{util::SingleElement, Ast, Param, TagKind};
+use crate::CvlElement;
+use crate::{Ast, Param, TagKind};
 use assert_matches::assert_matches;
+use color_eyre::eyre::{bail, Context};
+use color_eyre::Report;
 use indoc::indoc;
-use std::iter::zip;
+use itertools::Itertools;
+use std::iter::Iterator;
 
-macro_rules! param {
-    ($ty: expr) => {
-        ($ty.to_string(), None)
-    };
-    ($ty:expr, $name:expr) => {
-        ($ty.to_string(), Some($name.to_string()))
-    };
+fn parse_exactly_one(src: &str) -> Result<CvlElement, Report> {
+    let mut parsed = Builder::new(src).build().wrap_err("parsing failed")?;
+
+    match parsed.len() {
+        1 => Ok(parsed.remove(0)),
+        n => bail!("expected single element, but found {n}"),
+    }
 }
 
-fn compare_params(expected_params: &[Param], actual_params: &[Param]) {
-    assert_eq!(expected_params.len(), actual_params.len());
+fn parse_zero(src: &str) -> Result<(), Report> {
+    let parsed = Builder::new(src).build().wrap_err("parsing failed")?;
 
-    for (expected, actual) in zip(expected_params, actual_params) {
-        assert_eq!(expected.0, actual.0, "parsed param type is different");
-        assert_eq!(expected.1, actual.1, "parsed param name is different");
+    match parsed.len() {
+        0 => Ok(()),
+        n => bail!("expected zero elements, but found {n}"),
     }
 }
 
@@ -94,7 +100,6 @@ fn doc_tag_kinds() {
         /// world world world
         /// @title A simulator for trees
         /// and for everything green
-        /// @author Larry A. Gardner
         /// @notice You can use this contract for only the most basic simulation
         /// @dev All function calls are currently implemented without side effects
         rule trees { }
@@ -102,20 +107,14 @@ fn doc_tag_kinds() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let tag_kinds = parsed[0]
-        .doc
-        .iter()
-        .flatten()
-        .cloned()
-        .map(|doc_tag| doc_tag.kind);
+    let tag_kinds = parsed[0].doc.iter().map(|doc_tag| &doc_tag.kind);
     let expected = [
         TagKind::Notice,
         TagKind::Title,
-        TagKind::Unexpected(String::from("author")),
         TagKind::Notice,
         TagKind::Dev,
     ];
-    assert!(expected.into_iter().eq(tag_kinds));
+    assert!(expected.iter().eq(tag_kinds));
 }
 
 // #[test]
@@ -163,17 +162,19 @@ fn parsing_params() {
         }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let data = parsed.single_element().ast;
-
-    assert_eq!(data.name(), Some("goodMath"));
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Function { name, params, .. } = parsed.ast else {
+        panic!()
+    };
+    assert_eq!(name, "goodMath");
 
     let expected_params = [
-        param!("uint", "a"),
-        param!("int", "b"),
-        param!("string", "c"),
+        Param::new("uint", "a"),
+        Param::new("int", "b"),
+        Param::new("string", "c"),
     ];
-    compare_params(&expected_params, data.params().unwrap());
+    let params_are_equal = Iterator::eq(expected_params.iter(), params.iter());
+    assert!(params_are_equal);
 }
 
 #[test]
@@ -196,14 +197,16 @@ fn comments_in_element() {
                             ) { }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let ast = parsed.single_element().ast;
+    let parsed = parse_exactly_one(src).unwrap();
+    let Ast::Rule { name, params, .. } = parsed.ast else {
+        panic!()
+    };
 
-    assert_matches!(ast, Ast::Rule { .. });
-    assert_eq!(ast.name(), Some("ofLaw"));
+    assert_eq!(name, "ofLaw");
 
-    let expected_params = [param!("string", "lapd"), param!("string", "csny")];
-    compare_params(&expected_params, ast.params().unwrap());
+    let expected_params = [Param::new("string", "lapd"), Param::new("string", "csny")];
+    let params_are_equal = Iterator::eq(expected_params.iter(), params.iter());
+    assert!(params_are_equal);
 }
 
 #[test]
@@ -269,10 +272,8 @@ fn commented_out_doc_followed_by_non_commented() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-
-    let cvl_element = parsed.single_element();
-    let element_doc = cvl_element.doc.unwrap().single_element();
+    let cvl_element = parse_exactly_one(src).unwrap();
+    let element_doc = cvl_element.doc.iter().exactly_one().unwrap();
 
     assert_eq!(element_doc.kind, TagKind::Title);
     assert_eq!(cvl_element.ast.name(), Some("bar"));
@@ -294,14 +295,9 @@ fn grabbing_blocks() {
             }fizz buzz{}
         "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let cvl_element = parsed.single_element();
-    let block = cvl_element
-        .ast
-        .block()
-        .expect("could not capture code block");
+    let ast = parse_exactly_one(src).unwrap().ast;
 
-    assert!(block.ends_with("{}{}{}{{}}{{{{   }}}}"));
+    assert!(ast.block().unwrap().ends_with("{}{}{}{{}}{{{{   }}}}"));
 }
 
 #[test]
@@ -312,7 +308,7 @@ fn invariants() {
         @notice Zero cannot be an operator.
         */
         invariant validOperator(address operator)
-                beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 )
+                beneficiaryOf(operator) != 0  <=>  ( operator != 0 && ownerOf(operator) != 0 && authorizerOf(operator) != 0 );
 
         /**
              @title Valid state of an operator ❌.
@@ -361,10 +357,9 @@ fn rules_without_parameters() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
+    let element = parse_exactly_one(src).unwrap();
 
-    assert!(!element.doc.unwrap().is_empty());
+    assert!(!element.doc.is_empty());
     assert_matches!(element.ast, Ast::Rule { .. });
 }
 
@@ -394,7 +389,9 @@ fn multiline_slashed_freeform_concatenates_to_a_single_comment() {
     let element = &parsed[0];
 
     let expected = "## Verification of ERC1155Burnable\n\n`ERC1155Burnable` extends the `ERC1155` functionality by wrapping the internal\nmethods `_burn` and `_burnBatch` in the public methods `burn` and `burnBatch`,\nadding a requirement that the caller of either method be the account holding\nthe tokens or approved to act on that account's behalf.\n\n### Assumptions and Simplifications\n\n- No changes made using the harness\n\n### Properties";
-    let Ast::FreeFormComment { text } = &element.ast else { panic!("should have been parsed as documentation"); };
+    let Ast::FreeFormComment { text } = &element.ast else {
+        panic!("should have been parsed as documentation");
+    };
     assert_eq!(text, expected);
 }
 
@@ -420,7 +417,9 @@ fn crlf() {
 
     let parsed = Builder::new(&src_with_crlf_encoding).build().unwrap();
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!()
+    };
 
     assert_eq!(
         text,
@@ -448,10 +447,7 @@ fn methods_with_whitespace_between_name_and_params() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert_matches!(element.ast, Ast::Rule { .. });
+    assert_matches!(parse_exactly_one(src).unwrap().ast, Ast::Rule { .. });
 }
 
 #[test]
@@ -465,7 +461,9 @@ fn freeform_stars_without_text() {
 
     let parsed = Builder::new(src).build().unwrap();
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!() };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!()
+    };
     assert!(text.is_empty());
 }
 
@@ -515,10 +513,7 @@ fn span_contains_both_doc_and_associated_element() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert_eq!(element.raw(), src.trim());
+    assert_eq!(parse_exactly_one(src).unwrap().raw(), src.trim());
 }
 
 #[test]
@@ -535,10 +530,7 @@ fn raw_capture_for_multi_line_doc() {
         }
     "#};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    assert!(element.raw().starts_with("/**"));
+    assert!(parse_exactly_one(src).unwrap().raw().starts_with("/**"));
 }
 
 #[test]
@@ -563,10 +555,10 @@ fn blocks_where_brackets_are_not_separated_by_whitespace() {
         }
     "};
 
-    let parsed = Builder::new(src).build().unwrap();
-    let element = parsed.single_element();
-
-    let Ast::Rule { filters, .. } = &element.ast else { panic!() };
+    let element = parse_exactly_one(src).unwrap();
+    let Ast::Rule { filters, .. } = &element.ast else {
+        panic!()
+    };
 
     assert_eq!(filters.as_ref().unwrap(), "{f -> !f.isView}");
 }
@@ -589,10 +581,14 @@ fn variable_char_lengths() {
     let parsed = Builder::new(src).build().unwrap();
     assert_eq!(parsed.len(), 3);
 
-    let Ast::FreeFormComment { text } = &parsed[0].ast else { panic!(); };
+    let Ast::FreeFormComment { text } = &parsed[0].ast else {
+        panic!();
+    };
     assert_eq!(text, "🔥🔥🔥💯 frfr");
 
-    let Ast::FreeFormComment { text } = &parsed[2].ast else { panic!(); };
+    let Ast::FreeFormComment { text } = &parsed[2].ast else {
+        panic!();
+    };
     assert_eq!(text, "Text");
 
     assert_eq!(parsed[0].raw(), "/***\n🔥🔥🔥💯 frfr\n*/");

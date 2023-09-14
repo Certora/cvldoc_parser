@@ -1,11 +1,12 @@
 use super::terminated_str::TerminatedStr;
 use super::types::Token;
-use super::{cvl_lexer, cvl_parser, Intermediate, Span, Style};
+use super::{cvl_parser, lexer::cvl_lexer, Intermediate, Span, Style};
 use crate::util::ByteSpan;
 use crate::{Ast, CvlElement, DocumentationTag, TagKind};
 use chumsky::{Parser, Stream};
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
+use core::panic;
 use std::sync::Arc;
 
 struct DocumentationBuilder<'src> {
@@ -39,7 +40,10 @@ impl DocumentationTag {
                     tags.push(builder.build_current());
                 }
 
-                line.content = &line.content[new_tag.len() + 1..];
+                if let Some(after_tag) = line.content.get(new_tag.len() + 1..) {
+                    line.content = after_tag;
+                }
+
                 builder.kind = new_tag;
 
                 builder.span.start = line_span.start;
@@ -150,8 +154,7 @@ impl<'src> Builder<'src> {
                 .find(|c: char| c.is_ascii_whitespace())
                 .unwrap_or(content.len());
 
-            let tag = content[..tag_end].into();
-            Some(tag)
+            content[..tag_end].try_into().ok()
         } else {
             None
         }
@@ -161,30 +164,43 @@ impl<'src> Builder<'src> {
         &self,
         parsing_results: Vec<(Intermediate, Span)>,
     ) -> Result<Vec<CvlElement>> {
-        let mut current_doc = None;
-        let mut current_doc_span = None;
         let src_ref = Arc::from(self.0);
 
-        let elements = parsing_results
-            .into_iter()
-            .filter_map(|spanned_intermediate| self.process_intermediate(spanned_intermediate).ok())
-            .filter_map(|(doc_or_ast, span)| match doc_or_ast {
+        let mut elements = Vec::new();
+        let mut current_doc: Option<Vec<DocumentationTag>> = None;
+        let mut current_doc_span: Option<Span> = None;
+
+        for parse_result in parsing_results {
+            let Ok((doc_or_ast, span)) = self.process_intermediate(parse_result) else {
+                continue;
+            };
+
+            match doc_or_ast {
+                DocOrAst::Ast(ast @ Ast::FreeFormComment { .. }) => {
+                    // assert!(current_doc.is_none(), "documentation followed by freeform");
+                    elements.push(CvlElement {
+                        doc: Vec::new(),
+                        ast,
+                        element_span: span,
+                        doc_span: None,
+                        src: Arc::clone(&src_ref),
+                    });
+                }
                 DocOrAst::Ast(ast) => {
-                    let (doc, doc_span) = if matches!(ast, Ast::FreeFormComment { .. }) {
-                        // assert!(current_doc.is_none(), "documentation followed by freeform");
-                        (None, None)
-                    } else {
-                        (current_doc.take(), current_doc_span.take())
+                    let (doc, doc_span) = match (current_doc.take(), current_doc_span.take()) {
+                        (Some(doc), Some(doc_span)) => (doc, Some(doc_span)),
+                        (None, None) => (Vec::new(), None),
+                        (Some(_), None) => panic!("got doc without doc_span"),
+                        (None, Some(_)) => panic!("got doc_span without doc"),
                     };
 
-                    let cvl_element = CvlElement {
+                    elements.push(CvlElement {
                         doc,
                         ast,
                         element_span: span,
                         doc_span,
                         src: Arc::clone(&src_ref),
-                    };
-                    Some(cvl_element)
+                    });
                 }
                 DocOrAst::Doc(doc) => {
                     // assert!(
@@ -193,10 +209,10 @@ impl<'src> Builder<'src> {
                     // );
                     current_doc = Some(doc);
                     current_doc_span = Some(span);
-                    None
+                    continue;
                 }
-            })
-            .collect();
+            }
+        }
 
         Ok(elements)
     }
@@ -247,13 +263,13 @@ impl<'src> Builder<'src> {
             Intermediate::GhostMapping {
                 mapping,
                 name,
-                axioms: block,
+                axioms,
             } => {
-                let block = block.map(|c| self.owned_slice(c));
+                let axioms = axioms.map(|c| self.owned_slice(c));
                 let ast = Ast::GhostMapping {
                     name,
                     mapping,
-                    axioms: block,
+                    axioms,
                 };
 
                 DocOrAst::Ast(ast)
@@ -262,14 +278,14 @@ impl<'src> Builder<'src> {
                 name,
                 ty_list,
                 returns,
-                axioms: block,
+                axioms,
             } => {
-                let block = block.map(|c| self.owned_slice(c));
-                let ast = Ast::Ghost {
+                let axioms = axioms.map(|c| self.owned_slice(c));
+                let ast = Ast::GhostFunction {
                     name,
                     ty_list,
                     returns,
-                    axioms: block,
+                    axioms,
                 };
 
                 DocOrAst::Ast(ast)
@@ -281,6 +297,7 @@ impl<'src> Builder<'src> {
                 block,
             } => {
                 let block = self.trimmed_block_slice(block).to_string();
+                let params = params.unwrap_or_default();
                 let filters = filters.map(|c| self.owned_slice(c));
 
                 let ast = Ast::Rule {
@@ -330,7 +347,84 @@ impl<'src> Builder<'src> {
 
                 DocOrAst::Ast(ast)
             }
+            Intermediate::Import(imported) => DocOrAst::Ast(Ast::Import { imported }),
+            Intermediate::UseBuiltinRule { name } => DocOrAst::Ast(Ast::UseBuiltinRule { name }),
+            Intermediate::UseRule { name, filters } => {
+                let filters = filters.map(|c| self.owned_slice(c));
+                let ast = Ast::UseRule { name, filters };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::UseInvariant { name, proof } => {
+                let proof = proof.map(|c| self.trimmed_block_slice(c).to_string());
+                let ast = Ast::UseInvariant { name, proof };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::Using {
+                contract_name,
+                spec_name,
+            } => DocOrAst::Ast(Ast::Using {
+                contract_name,
+                spec_name,
+            }),
             Intermediate::ParseError => bail!("parse errors are not parsed"),
+            Intermediate::HookSload {
+                loaded,
+                slot_pattern,
+                block,
+            } => {
+                let slot_pattern = self.owned_slice(slot_pattern).to_string();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookSload {
+                    loaded,
+                    slot_pattern,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookSstore {
+                stored,
+                old,
+                slot_pattern,
+                block,
+            } => {
+                // we expect the old type to be the same as the new type
+                let slot_pattern = self.owned_slice(slot_pattern).to_string();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookSstore {
+                    stored,
+                    old,
+                    slot_pattern,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookCreate { created, block } => {
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookCreate { created, block };
+
+                DocOrAst::Ast(ast)
+            }
+            Intermediate::HookOpcode {
+                opcode,
+                params,
+                returns,
+                block,
+            } => {
+                let params = params.unwrap_or_default();
+                let block = self.trimmed_block_slice(block).to_string();
+                let ast = Ast::HookOpcode {
+                    opcode,
+                    params,
+                    returns,
+                    block,
+                };
+
+                DocOrAst::Ast(ast)
+            }
         };
 
         Ok((process_result, span))
