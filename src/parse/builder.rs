@@ -40,7 +40,10 @@ impl DocumentationTag {
                     tags.push(builder.build_current());
                 }
 
-                line.content = &line.content[new_tag.len() + 1..];
+                if let Some(after_tag) = line.content.get(new_tag.len() + 1..) {
+                    line.content = after_tag;
+                }
+
                 builder.kind = new_tag;
 
                 builder.span.start = line_span.start;
@@ -151,8 +154,7 @@ impl<'src> Builder<'src> {
                 .find(|c: char| c.is_ascii_whitespace())
                 .unwrap_or(content.len());
 
-            let tag = content[..tag_end].into();
-            Some(tag)
+            content[..tag_end].try_into().ok()
         } else {
             None
         }

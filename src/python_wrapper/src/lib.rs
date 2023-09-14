@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use std::fs::read_to_string;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use wrapper_structs::{AstKindPy, AstPy, CvlElementPy, DocumentationTagPy, SpanPy};
+use wrapper_structs::{AstKindPy, AstPy, CvlElementPy, DocumentationTagPy, SpanPy, TagKindPy};
 
 fn file_contents(path: &Path) -> PyResult<String> {
     read_to_string(path).map_err(|e| handle_io_error(path, e))
@@ -54,6 +54,7 @@ fn cvldoc_parser(_py: Python, module: &PyModule) -> PyResult<()> {
     module.add_class::<CvlElementPy>()?;
     module.add_class::<AstPy>()?;
     module.add_class::<AstKindPy>()?;
+    module.add_class::<TagKindPy>()?;
     module.add_class::<SpanPy>()?;
     module.add_class::<DocumentationTagPy>()?;
 

@@ -1,7 +1,5 @@
 mod cvl2;
 
-use std::iter::Iterator;
-
 use super::builder::Builder;
 use super::Token;
 use crate::CvlElement;
@@ -11,6 +9,7 @@ use color_eyre::eyre::{bail, Context};
 use color_eyre::Report;
 use indoc::indoc;
 use itertools::Itertools;
+use std::iter::Iterator;
 
 fn parse_exactly_one(src: &str) -> Result<CvlElement, Report> {
     let mut parsed = Builder::new(src).build().wrap_err("parsing failed")?;
@@ -101,7 +100,6 @@ fn doc_tag_kinds() {
         /// world world world
         /// @title A simulator for trees
         /// and for everything green
-        /// @author Larry A. Gardner
         /// @notice You can use this contract for only the most basic simulation
         /// @dev All function calls are currently implemented without side effects
         rule trees { }
@@ -113,7 +111,6 @@ fn doc_tag_kinds() {
     let expected = [
         TagKind::Notice,
         TagKind::Title,
-        TagKind::Unexpected(String::from("author")),
         TagKind::Notice,
         TagKind::Dev,
     ];

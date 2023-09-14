@@ -38,9 +38,6 @@ impl Ast {
     }
 }
 
-const WARNING: DiagnosticSeverity = DiagnosticSeverity::WARNING;
-const ERROR: DiagnosticSeverity = DiagnosticSeverity::ERROR;
-
 enum DiagSpan<'a> {
     #[allow(unused)]
     EntireDoc,
@@ -82,29 +79,21 @@ impl CvlElement {
             if !self.ast.defines_param(param) {
                 //A @param is provided for a non-existent parameter
                 let message = format!("no such parameter: {param}");
-                add(message, DiagSpan::SingleTag(tag), ERROR);
+                add(message, DiagSpan::SingleTag(tag), DiagnosticSeverity::ERROR);
             } else if self.doc[..i]
                 .iter()
                 .any(|tag| tag.param_name() == Some(param))
             {
                 //Each parameter must be documented at most once
                 let message = "parameter is already documented".to_string();
-                add(message, DiagSpan::SingleTag(tag), ERROR);
+                add(message, DiagSpan::SingleTag(tag), DiagnosticSeverity::ERROR);
             }
         }
 
         for tag in &self.doc {
             if !self.ast.supports(&tag.kind) {
                 let message = format!("this tag is unsupported for {} blocks", self.ast);
-                add(message, DiagSpan::SingleTag(tag), ERROR);
-            }
-        }
-
-        for tag in &self.doc {
-            if let TagKind::Unexpected(unexpected_tag) = &tag.kind {
-                //Unrecognized tags appear anywhere
-                let message = format!("@{unexpected_tag} is unrecognized");
-                add(message, DiagSpan::SingleTag(tag), WARNING);
+                add(message, DiagSpan::SingleTag(tag), DiagnosticSeverity::ERROR);
             }
         }
 

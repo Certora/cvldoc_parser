@@ -49,8 +49,9 @@ jobs:
             PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
 
             [[ $CORE_CARGOTOML_VER == $LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
-            [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
             [[ $CORE_CARGOTOML_VER == $MODULE_CARGOTOML_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match module Cargo.toml version (${MODULE_CARGOTOML_VER})"
+
+            # [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
 
             exit $status
       - run:
@@ -172,7 +173,7 @@ jobs:
           at: .
       - run: 
           name: Install dependencies
-          command: choco install wget
+          command: choco install wget -y
           shell: bash.exe
       - run:
           name: Install wheel

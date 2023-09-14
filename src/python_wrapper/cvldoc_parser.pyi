@@ -26,6 +26,14 @@ class AstKind(Enum):
     HookCreate = 15
     HookOpcode = 16
 
+class TagKind(Enum):
+    Title = 0
+    Notice = 1
+    Dev = 2
+    Param = 3
+    Return = 4
+    Formula = 5
+
 class Span:
     start: int
     end: int

@@ -1,5 +1,5 @@
 use cvldoc_parser_core::util::Span;
-use cvldoc_parser_core::{Ast, CvlElement, DocumentationTag};
+use cvldoc_parser_core::{Ast, CvlElement, DocumentationTag, TagKind};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pythonize::pythonize;
@@ -165,6 +165,44 @@ impl AstPy {
     }
 }
 
+#[pyclass(name = "TagKind", frozen)]
+#[derive(Debug, Clone)]
+pub enum TagKindPy {
+    Title,
+    Notice,
+    Dev,
+    Param,
+    Return,
+    Formula,
+}
+
+#[pymethods]
+impl TagKindPy {
+    fn __str__(&self) -> &str {
+        match self {
+            TagKindPy::Title => "title",
+            TagKindPy::Notice => "notice",
+            TagKindPy::Dev => "dev",
+            TagKindPy::Param => "param",
+            TagKindPy::Return => "return",
+            TagKindPy::Formula => "formula",
+        }
+    }
+}
+
+impl From<&TagKind> for TagKindPy {
+    fn from(value: &TagKind) -> Self {
+        match value {
+            TagKind::Title => TagKindPy::Title,
+            TagKind::Notice => TagKindPy::Notice,
+            TagKind::Dev => TagKindPy::Dev,
+            TagKind::Param => TagKindPy::Param,
+            TagKind::Return => TagKindPy::Return,
+            TagKind::Formula => TagKindPy::Formula,
+        }
+    }
+}
+
 #[pyclass(name = "Span", get_all, frozen)]
 #[derive(Debug, Clone)]
 pub struct SpanPy {
@@ -187,17 +225,19 @@ impl SpanPy {
     }
 }
 
+/// optimization opportunity: it should be pretty easy to make this struct cheaper,
+/// by borrowing data from the matching doc tag of `inner`
 #[pyclass(name = "DocumentationTag", get_all, frozen)]
 #[derive(Debug, Clone)]
 pub struct DocumentationTagPy {
-    pub kind: String,
+    pub kind: TagKindPy,
     pub description: String,
 }
 
 impl From<&DocumentationTag> for DocumentationTagPy {
     fn from(value: &DocumentationTag) -> Self {
         DocumentationTagPy {
-            kind: value.kind.to_string(),
+            kind: TagKindPy::from(&value.kind),
             description: value.description.to_owned(),
         }
     }
@@ -206,7 +246,7 @@ impl From<&DocumentationTag> for DocumentationTagPy {
 #[pymethods]
 impl DocumentationTagPy {
     pub fn param_name_and_description(&self) -> Option<(&str, &str)> {
-        if self.kind == "param" {
+        if matches!(self.kind, TagKindPy::Param) {
             let description = self.description.trim();
             let (param_name, param_description) =
                 description.split_once(|c| char::is_ascii_whitespace(&c))?;
@@ -219,7 +259,8 @@ impl DocumentationTagPy {
     }
 
     fn __repr__(&self) -> String {
-        let DocumentationTagPy { kind, description } = self;
+        let kind = self.kind.__str__();
+        let description = &self.description;
         format!("DocumentationTag({kind}, {description})")
     }
 }

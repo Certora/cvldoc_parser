@@ -500,7 +500,7 @@ fn invariant_span_is_correct3() {
     "#};
 
     let parsed = Builder::new(src).build().unwrap();
-    // dbg!(parsed);
+
     let [invariant, freeform, rule] = parsed.as_slice() else {
         let len = parsed.len();
         panic!("expected exactly 3 elements but got {len}")
@@ -512,4 +512,37 @@ fn invariant_span_is_correct3() {
         panic!()
     };
     let Ast::Rule { .. } = rule.ast else { panic!() };
+}
+
+/// as of version 2.0, we no longer parse unexpected tags.
+/// any substrings of the form `@foo` where `foo` is not one of the tags
+/// defined in [crate::TagKind], will concatenate to the description of the previous tag.
+#[test]
+fn unrecognized_tags() {
+    let src = indoc! {"
+        /// @illegal this tag does not exist
+        /// @dev this tag does exist
+        /// @another_illegal this tag does not exist
+        ///      @still_illegal whitespace should be trimmed
+        /// @formula hello@withrevert(world)
+        function foo(int bar) { }
+    "};
+
+    let parsed = Builder::new(src)
+        .build()
+        .expect("illegal tags should still parse");
+    let parsed = parsed.into_iter().exactly_one().unwrap();
+
+    let [tag1, tag2, tag3] = parsed.doc.as_slice() else {
+        panic!("should parse to exactly 3 tags")
+    };
+
+    assert_matches!(tag1.kind, TagKind::Notice);
+    assert_eq!(tag1.description, "@illegal this tag does not exist");
+
+    assert_matches!(tag2.kind, TagKind::Dev);
+    assert_eq!(tag2.description, "this tag does exist\n@another_illegal this tag does not exist\n@still_illegal whitespace should be trimmed");
+
+    assert_matches!(tag3.kind, TagKind::Formula);
+    assert_eq!(tag3.description, "hello@withrevert(world)"); // @withrevert should not parse to a new tag
 }

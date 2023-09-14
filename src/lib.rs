@@ -2,6 +2,7 @@ pub mod diagnostics;
 pub mod parse;
 pub mod util;
 
+use color_eyre::eyre::bail;
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
@@ -22,8 +23,8 @@ impl Debug for CvlElement {
         f.debug_struct("CvlElement")
             .field("doc", &self.doc)
             .field("ast", &self.ast)
-            .field("element_span", &self.element_span)
-            .field("doc_span", &self.doc_span)
+            // .field("element_span", &self.element_span)
+            // .field("doc_span", &self.doc_span)
             .finish()
     }
 }
@@ -206,69 +207,40 @@ pub enum TagKind {
     Param,
     Return,
     Formula,
-    Unexpected(String),
 }
 
-impl Display for TagKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
+impl TagKind {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
             TagKind::Title => "title",
             TagKind::Notice => "notice",
             TagKind::Dev => "dev",
             TagKind::Param => "param",
             TagKind::Return => "return",
             TagKind::Formula => "formula",
-            TagKind::Unexpected(s) => s.as_str(),
-        };
-        write!(f, "{s}")
+        }
     }
-}
 
-impl TagKind {
     pub(crate) fn len(&self) -> usize {
-        let len_without_ampersat = match self {
-            TagKind::Dev => 3,
-            TagKind::Title | TagKind::Param => 5,
-            TagKind::Notice | TagKind::Return => 6,
-            TagKind::Formula => 7,
-            TagKind::Unexpected(s) => s.len(),
-        };
-
+        let len_without_ampersat = self.as_str().len();
         len_without_ampersat + 1
     }
 }
 
-impl From<&str> for TagKind {
-    fn from(mut s: &str) -> Self {
-        if let Some(trimmed) = s.strip_prefix('@') {
-            s = trimmed;
-        }
+impl TryFrom<&str> for TagKind {
+    type Error = color_eyre::Report;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let s = s.strip_prefix('@').unwrap_or(s);
+
         match s {
-            "title" => TagKind::Title,
-            "notice" => TagKind::Notice,
-            "dev" => TagKind::Dev,
-            "param" => TagKind::Param,
-            "return" => TagKind::Return,
-            "formula" => TagKind::Formula,
-            _ => TagKind::Unexpected(s.to_string()),
-        }
-    }
-}
-
-impl From<String> for TagKind {
-    fn from(mut s: String) -> Self {
-        if s.starts_with('@') {
-            s.remove(0);
-        }
-
-        match s.as_str() {
-            "title" => TagKind::Title,
-            "notice" => TagKind::Notice,
-            "dev" => TagKind::Dev,
-            "param" => TagKind::Param,
-            "return" => TagKind::Return,
-            "formula" => TagKind::Formula,
-            _ => TagKind::Unexpected(s),
+            "title" => Ok(TagKind::Title),
+            "notice" => Ok(TagKind::Notice),
+            "dev" => Ok(TagKind::Dev),
+            "param" => Ok(TagKind::Param),
+            "return" => Ok(TagKind::Return),
+            "formula" => Ok(TagKind::Formula),
+            _ => bail!("unrecognized tag: {s}"),
         }
     }
 }
