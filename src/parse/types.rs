@@ -59,6 +59,7 @@ pub enum Token {
     Old,
     Offset,
     Slot,
+    Persistent,
 }
 
 impl Display for Token {
@@ -108,6 +109,7 @@ impl Display for Token {
             Token::Index => write!(f, "INDEX"),
             Token::Slot => write!(f, "slot"),
             Token::Offset => write!(f, "offset"),
+            Token::Persistent => write!(f, "persistent"),
 
             Token::Ident(data) | Token::Other(data) | Token::Number(data) | Token::String(data) => {
                 write!(f, "{data}")
@@ -141,11 +143,13 @@ pub enum Intermediate {
         block: Span,
     },
     GhostMapping {
+        persistent: bool,
         name: String,
         mapping: String,
         axioms: Option<Span>,
     },
-    Ghost {
+    GhostFunction {
+        persistent: bool,
         name: String,
         ty_list: Vec<String>,
         returns: String,
