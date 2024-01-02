@@ -261,12 +261,14 @@ impl<'src> Builder<'src> {
                 DocOrAst::Ast(ast)
             }
             Intermediate::GhostMapping {
+                persistent,
                 mapping,
                 name,
                 axioms,
             } => {
                 let axioms = axioms.map(|c| self.owned_slice(c));
                 let ast = Ast::GhostMapping {
+                    persistent,
                     name,
                     mapping,
                     axioms,
@@ -274,7 +276,8 @@ impl<'src> Builder<'src> {
 
                 DocOrAst::Ast(ast)
             }
-            Intermediate::Ghost {
+            Intermediate::GhostFunction {
+                persistent,
                 name,
                 ty_list,
                 returns,
@@ -282,6 +285,7 @@ impl<'src> Builder<'src> {
             } => {
                 let axioms = axioms.map(|c| self.owned_slice(c));
                 let ast = Ast::GhostFunction {
+                    persistent,
                     name,
                     ty_list,
                     returns,

@@ -75,12 +75,14 @@ pub enum Ast {
         definition: String,
     },
     GhostFunction {
+        persistent: bool,
         name: String,
         ty_list: Vec<String>,
         returns: String,
         axioms: Option<String>,
     },
     GhostMapping {
+        persistent: bool,
         name: String,
         mapping: String,
         axioms: Option<String>,
