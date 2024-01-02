@@ -92,28 +92,40 @@ fn decl_parser() -> impl Parser<Token, Intermediate, Error = Simple<Token>> {
     };
 
     let ghost_decl = {
-        let with_mapping = just(Token::Ghost)
-            .ignore_then(ty())
+        let persistent_ghost = just(Token::Persistent).then(just(Token::Ghost)).to(true);
+        let regular_ghost = just(Token::Ghost).to(false);
+
+        let opening_tokens = persistent_ghost.or(regular_ghost);
+
+        let with_mapping = opening_tokens
+            .clone()
+            .then(ty())
             .then(ident())
             .then(optional_code_block())
-            .map(|((mapping, name), block)| Intermediate::GhostMapping {
-                mapping,
-                name,
-                axioms: block,
-            })
+            .map(
+                |(((persistent, mapping), name), axioms)| Intermediate::GhostMapping {
+                    persistent,
+                    mapping,
+                    name,
+                    axioms,
+                },
+            )
             .labelled("ghost declaration (with mapping)");
 
-        let without_mapping = just(Token::Ghost)
-            .ignore_then(ident())
+        let without_mapping = opening_tokens
+            .then(ident())
             .then(unnamed_param_list())
             .then(returns_type())
             .then(optional_code_block())
-            .map(|(((name, ty_list), returns), block)| Intermediate::Ghost {
-                name,
-                ty_list,
-                returns,
-                axioms: block,
-            })
+            .map(
+                |((((persistent, name), ty_list), returns), axioms)| Intermediate::GhostFunction {
+                    persistent,
+                    name,
+                    ty_list,
+                    returns,
+                    axioms,
+                },
+            )
             .labelled("ghost declaration (without mapping)");
 
         with_mapping.or(without_mapping)

@@ -127,6 +127,7 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
         "sig" => Token::Sig,
         "description" => Token::Description,
         "old" => Token::Old,
+        "persistent" => Token::Persistent,
         _ => Token::Ident(ident),
     });
     let other = {

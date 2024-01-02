@@ -546,3 +546,30 @@ fn unrecognized_tags() {
     assert_matches!(tag3.kind, TagKind::Formula);
     assert_eq!(tag3.description, "hello@withrevert(world)"); // @withrevert should not parse to a new tag
 }
+
+#[test]
+fn persistent_ghosts() {
+    let src = indoc! {"
+        persistent ghost int pers;
+        ghost            int non_pers;
+    "};
+
+    let parsed = Builder::new(src).build().unwrap();
+
+    let check_ghost = |element: &CvlElement, expected_name, expected_persistent| match &element.ast
+    {
+        Ast::GhostMapping {
+            persistent, name, ..
+        } => {
+            assert_eq!(name, expected_name);
+            assert_eq!(*persistent, expected_persistent);
+        }
+
+        ast => panic!("got unexpected ast: ${ast:?}"),
+    };
+
+    assert_eq!(parsed.len(), 2);
+
+    check_ghost(&parsed[0], "pers", true);
+    check_ghost(&parsed[1], "non_pers", false);
+}
