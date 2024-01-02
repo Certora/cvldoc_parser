@@ -3,6 +3,7 @@
 ### Added
 - Support parsing of `hook`, `use`, `using`, `import` statements.
 - Python module API has been simplified.
+- Support `persistent ghost`.
 ### Changed
 - CVL2 syntax is now enforced. Parsing of code which is not compliant with CVL2 has been removed.
 ### Fixed
