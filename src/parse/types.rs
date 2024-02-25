@@ -1,4 +1,5 @@
 use crate::util::Span;
+use crate::Param;
 use itertools::Itertools;
 use std::fmt::{Display, Formatter};
 
@@ -24,6 +25,7 @@ pub enum Token {
     CurlyOpen,
     CurlyClose,
     Ident(String),
+    String(String),
     Number(String),
     Other(String),
     Dot,
@@ -32,11 +34,32 @@ pub enum Token {
     Comma,
     Semicolon,
     Equals,
+    Excl,
     Arrow,
     Axiom,
     Using,
     Hook,
     Preserved,
+    Import,
+    Use,
+    Builtin,
+    As,
+    Sload,
+    Sstore,
+    Create,
+    Storage,
+    Key,
+    Index,
+    Exists,
+    ForAll,
+    Return,
+    Override,
+    Sig,
+    Description,
+    Old,
+    Offset,
+    Slot,
+    Persistent,
 }
 
 impl Display for Token {
@@ -51,6 +74,7 @@ impl Display for Token {
             Token::Mapping => write!(f, "mapping"),
             Token::Returns => write!(f, "returns"),
             Token::Filtered => write!(f, "filtered"),
+            Token::Builtin => write!(f, "builtin"),
             Token::RoundOpen => write!(f, "("),
             Token::RoundClose => write!(f, ")"),
             Token::SquareOpen => write!(f, "["),
@@ -61,13 +85,35 @@ impl Display for Token {
             Token::Comma => write!(f, ","),
             Token::Semicolon => write!(f, ";"),
             Token::Equals => write!(f, "="),
+            Token::Excl => write!(f, "!"),
             Token::Arrow => write!(f, "=>"),
             Token::Axiom => write!(f, "axiom"),
             Token::Using => write!(f, "using"),
             Token::Hook => write!(f, "hook"),
             Token::Preserved => write!(f, "preserved"),
+            Token::Import => write!(f, "import"),
+            Token::Use => write!(f, "use"),
+            Token::As => write!(f, "as"),
+            Token::Sload => write!(f, "Sload"),
+            Token::Sstore => write!(f, "Sstore"),
+            Token::Create => write!(f, "Create"),
+            Token::Storage => write!(f, "STORAGE"),
+            Token::Exists => write!(f, "exists"),
+            Token::ForAll => write!(f, "forall"),
+            Token::Return => write!(f, "return"),
+            Token::Override => write!(f, "override"),
+            Token::Sig => write!(f, "sig"),
+            Token::Description => write!(f, "description"),
+            Token::Old => write!(f, "old"),
+            Token::Key => write!(f, "KEY"),
+            Token::Index => write!(f, "INDEX"),
+            Token::Slot => write!(f, "slot"),
+            Token::Offset => write!(f, "offset"),
+            Token::Persistent => write!(f, "persistent"),
 
-            Token::Ident(data) | Token::Other(data) | Token::Number(data) => write!(f, "{data}"),
+            Token::Ident(data) | Token::Other(data) | Token::Number(data) | Token::String(data) => {
+                write!(f, "{data}")
+            }
 
             Token::CvlDocSlashed
             | Token::CvlDocStarred
@@ -92,16 +138,18 @@ pub enum Intermediate {
     Methods(Span),
     Function {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<Param>,
         returns: Option<String>,
         block: Span,
     },
     GhostMapping {
+        persistent: bool,
         name: String,
         mapping: String,
         axioms: Option<Span>,
     },
-    Ghost {
+    GhostFunction {
+        persistent: bool,
         name: String,
         ty_list: Vec<String>,
         returns: String,
@@ -109,22 +157,59 @@ pub enum Intermediate {
     },
     Rule {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Option<Vec<Param>>,
         filters: Option<Span>,
         block: Span,
     },
     Definition {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<Param>,
         returns: String,
         definition: Span,
     },
     Invariant {
         name: String,
-        params: Vec<(String, Option<String>)>,
+        params: Vec<Param>,
         invariant: Span,
         filters: Option<Span>,
         proof: Option<Span>,
+    },
+    Import(String),
+    UseRule {
+        name: String,
+        filters: Option<Span>,
+    },
+    UseBuiltinRule {
+        name: String,
+    },
+    UseInvariant {
+        name: String,
+        proof: Option<Span>,
+    },
+    HookSload {
+        loaded: Param,
+        slot_pattern: Span,
+        block: Span,
+    },
+    HookSstore {
+        stored: Param,
+        old: Option<Param>,
+        slot_pattern: Span,
+        block: Span,
+    },
+    HookCreate {
+        created: Param, // currently, the type is required to be `address`
+        block: Span,
+    },
+    HookOpcode {
+        opcode: String, // we over-approximate the opcode to be any ident
+        params: Option<Vec<Param>>,
+        returns: Option<Param>,
+        block: Span,
+    },
+    Using {
+        contract_name: String,
+        spec_name: String,
     },
     ParseError,
 }

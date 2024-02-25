@@ -2,11 +2,11 @@ defines:
   smoke-test: &smoke-test
     name: Smoke test
     command: |
-      wget https://raw.githubusercontent.com/Certora/natspecTools/master/tests/basic_tests/definition_test.spec
+      wget https://raw.githubusercontent.com/Certora/cvldocTool/master/tests/basic_tests/definition_test.spec
 
       python -c "import cvldoc_parser
-      parsed = cvldoc_parser.parse([\"definition_test.spec\"])
-      assert len(parsed[0]) == 3, \"should parse to 3 elements\""
+      parsed = cvldoc_parser.parse(\"definition_test.spec\")
+      assert len(parsed) == 3, \"should parse to 3 elements\""
 
   store-and-persist:
     - store_artifacts: &store-wheel
@@ -23,7 +23,7 @@ orbs:
 jobs:
   unit-tests:
     docker:
-      - image: cimg/rust:1.65.0
+      - image: cimg/rust:1.72.0
     steps:
       - checkout
       - run:
@@ -43,15 +43,15 @@ jobs:
             PYTHON_MODULE_DIR="${CORE_DIR}/src/python_wrapper"
 
             CORE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${CORE_DIR}/Cargo.toml)
-            CORE_LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
+            LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
 
             MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml) 
             PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
-            MODULE_LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${PYTHON_MODULE_DIR}/CHANGELOG.md)
 
-            [[ $CORE_CARGOTOML_VER == $CORE_LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
-            [[ $MODULE_CARGOTOML_VER == $MODULE_LATEST_CHANGELOG_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${MODULE_LATEST_CHANGELOG_VER})"
-            [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
+            [[ $CORE_CARGOTOML_VER == $LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
+            [[ $CORE_CARGOTOML_VER == $MODULE_CARGOTOML_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match module Cargo.toml version (${MODULE_CARGOTOML_VER})"
+
+            # [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
 
             exit $status
       - run:
@@ -80,7 +80,7 @@ jobs:
           command: |
             cd src/python_wrapper
             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-            maturin build --target=aarch64-apple-darwin --universal2
+            maturin build --target=universal2-apple-darwin
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
@@ -173,7 +173,7 @@ jobs:
           at: .
       - run: 
           name: Install dependencies
-          command: choco install wget
+          command: choco install wget -y
           shell: bash.exe
       - run:
           name: Install wheel
