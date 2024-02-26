@@ -1,8 +1,14 @@
 # CVLDoc Parser: Python module
-Exposes a Python API for the CVLDoc module. WIP.
+Exposes a Python API for the CVLDoc module. 
+Currently exposes a single function, `cvldoc_parser.parse(path)`. It takes a single path, and returns a list of parsed CVLDoc objects.
 
-## Usage
-First, make sure **Rust 1.62** or newer is installed.
+## Install
+Up-to-date builds (built by the CircleCI script) are available on Test `PyPI`: 
+
+`pip install --pre --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple cvldoc_parser`
+
+## Build
+First, [install Rust](https://rustup.rs/). 
 Clone [the entire repo](https://github.com/Certora/cvldoc_parser), then from the project base:
 ```bash
 $ cd src/python_wrapper
@@ -22,7 +28,3 @@ It is now possible to import the module:
 $ python
 >>> import cvldoc_parser
 ```
-
-## API
-Currently exposes a single function, `cvldoc_parser.parse(paths)`. It takes a list of file paths as strings, and returns a list of parsed CVLDoc objects for each path.
-A parsed CVLDoc object is either a `Documentation` or a `FreeForm`. They both support a `diagnostics()` method, that returns a list of warnings or errors associated with that object.
