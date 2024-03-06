@@ -103,6 +103,7 @@ jobs:
   build-linux-aarch64-wheel:
     docker:
       - image: quay.io/pypa/manylinux_2_24_aarch64:latest
+    resource_class: arm.medium
     steps:
       - checkout
       - rust/install
