@@ -100,7 +100,7 @@ jobs:
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
-  build-linux-aarch-wheel:
+  build-linux-aarch64-wheel:
     docker:
       - image: quay.io/pypa/manylinux_2_24_aarch64:latest
     steps:
@@ -238,7 +238,7 @@ workflows:
       - build-linux-x64-wheel:
           requires:
             - unit-tests
-      - build-linux-aarch-wheel:
+      - build-linux-aarch64-wheel:
           requires:
             - unit-tests
       - build-macos-wheel:
@@ -250,7 +250,7 @@ workflows:
       - integration-test-linux:
           requires:
             - build-linux-x64-wheel
-            - build-linux-aarch-wheel
+            - build-linux-aarch64-wheel
       - integration-test-macos:
           requires:
             - build-macos-wheel
