@@ -84,9 +84,9 @@ jobs:
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
-  build-linux-wheel:
+  build-linux-x64-wheel:
     docker:
-      - image: quay.io/pypa/manylinux2014_x86_64:latest
+      - image: quay.io/pypa/manylinux_2_24_x86_64:latest
     steps:
       - checkout
       - rust/install
@@ -94,7 +94,23 @@ jobs:
           name: Install Maturin and Build wheel
           command: |
             cd src/python_wrapper
-            PYBIN_DIR="/opt/python/cp37-cp37m/bin"
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
+            "${PYBIN_DIR}/pip" install maturin
+            "${PYBIN_DIR}/maturin" build --bindings=pyo3
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
+
+  build-linux-aarch-wheel:
+    docker:
+      - image: quay.io/pypa/manylinux_2_24_aarch64:latest
+    steps:
+      - checkout
+      - rust/install
+      - run:
+          name: Install Maturin and Build wheel
+          command: |
+            cd src/python_wrapper
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
             "${PYBIN_DIR}/pip" install maturin
             "${PYBIN_DIR}/maturin" build --bindings=pyo3
       - store_artifacts: *store-wheel
@@ -219,7 +235,10 @@ workflows:
   unit-test-build-and-integration-test:
     jobs:
       - unit-tests
-      - build-linux-wheel:
+      - build-linux-x64-wheel:
+          requires:
+            - unit-tests
+      - build-linux-aarch-wheel:
           requires:
             - unit-tests
       - build-macos-wheel:
@@ -230,7 +249,8 @@ workflows:
             - unit-tests
       - integration-test-linux:
           requires:
-            - build-linux-wheel
+            - build-linux-x64-wheel
+            - build-linux-aarch-wheel
       - integration-test-macos:
           requires:
             - build-macos-wheel
