@@ -1,4 +1,10 @@
 # Changelog
+## [2.0.1] - 2024-03-06
+### Added
+- Now compiling to `linux-aarch64` aka ARM on Linux
+### Changed
+- Minimum supported Python version is now `3.9`
+
 ## [2.0.0] - 2023-09-13
 ### Added
 - Support parsing of `hook`, `use`, `using`, `import` statements.

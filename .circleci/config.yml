@@ -23,7 +23,7 @@ orbs:
 jobs:
   unit-tests:
     docker:
-      - image: cimg/rust:1.72.0
+      - image: cimg/rust:1.76.0
     steps:
       - checkout
       - run:
@@ -84,7 +84,7 @@ jobs:
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
-  build-linux-wheel:
+  build-linux-x64-wheel:
     docker:
       - image: quay.io/pypa/manylinux2014_x86_64:latest
     steps:
@@ -94,7 +94,24 @@ jobs:
           name: Install Maturin and Build wheel
           command: |
             cd src/python_wrapper
-            PYBIN_DIR="/opt/python/cp37-cp37m/bin"
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
+            "${PYBIN_DIR}/pip" install maturin
+            "${PYBIN_DIR}/maturin" build --bindings=pyo3
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
+
+  build-linux-aarch64-wheel:
+    docker:
+      - image: quay.io/pypa/manylinux2014_aarch64:latest
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - rust/install
+      - run:
+          name: Install Maturin and Build wheel
+          command: |
+            cd src/python_wrapper
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
             "${PYBIN_DIR}/pip" install maturin
             "${PYBIN_DIR}/maturin" build --bindings=pyo3
       - store_artifacts: *store-wheel
@@ -133,9 +150,25 @@ jobs:
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
-  integration-test-linux:
+  integration-test-linux-x64:
     docker:
-      - image: python:3.7
+      - image: python:3.9
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run: 
+          <<: *smoke-test
+
+  integration-test-linux-aarch64:
+    docker:
+      - image: python:3.9
+    resource_class: arm.medium
     steps:
       - attach_workspace:
           at: .
@@ -219,7 +252,10 @@ workflows:
   unit-test-build-and-integration-test:
     jobs:
       - unit-tests
-      - build-linux-wheel:
+      - build-linux-x64-wheel:
+          requires:
+            - unit-tests
+      - build-linux-aarch64-wheel:
           requires:
             - unit-tests
       - build-macos-wheel:
@@ -228,9 +264,12 @@ workflows:
       - build-windows-wheel:
           requires:
             - unit-tests
-      - integration-test-linux:
+      - integration-test-linux-x64:
           requires:
-            - build-linux-wheel
+            - build-linux-x64-wheel
+      - integration-test-linux-aarch64:
+          requires:
+            - build-linux-aarch64-wheel
       - integration-test-macos:
           requires:
             - build-macos-wheel
@@ -239,7 +278,8 @@ workflows:
             - build-windows-wheel
       - publish-to-testpypi:
           requires:
-            - integration-test-linux
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
             - integration-test-macos
             - integration-test-windows
           filters:
@@ -247,7 +287,8 @@ workflows:
               only: master
       - publish-to-pypi:
           requires:
-            - integration-test-linux
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
             - integration-test-macos
             - integration-test-windows
           filters:
