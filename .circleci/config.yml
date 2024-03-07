@@ -86,7 +86,7 @@ jobs:
 
   build-linux-x64-wheel:
     docker:
-      - image: quay.io/pypa/manylinux_2_24_x86_64:latest
+      - image: quay.io/pypa/manylinux2014_x86_64:latest
     steps:
       - checkout
       - rust/install
@@ -102,7 +102,7 @@ jobs:
 
   build-linux-aarch64-wheel:
     docker:
-      - image: quay.io/pypa/manylinux_2_24_aarch64:latest
+      - image: quay.io/pypa/manylinux2014_aarch64:latest
     resource_class: arm.medium
     steps:
       - checkout
@@ -150,9 +150,25 @@ jobs:
       - store_artifacts: *store-wheel
       - persist_to_workspace: *persist-wheel
 
-  integration-test-linux:
+  integration-test-linux-x64:
     docker:
-      - image: python:3.7
+      - image: python:3.9
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run: 
+          <<: *smoke-test
+
+  integration-test-linux-aarch64:
+    docker:
+      - image: python:3.9
+    resource_class: arm.medium
     steps:
       - attach_workspace:
           at: .
@@ -248,9 +264,11 @@ workflows:
       - build-windows-wheel:
           requires:
             - unit-tests
-      - integration-test-linux:
+      - integration-test-linux-x64:
           requires:
             - build-linux-x64-wheel
+      - integration-test-linux-aarch64:
+          requires:
             - build-linux-aarch64-wheel
       - integration-test-macos:
           requires:
@@ -260,7 +278,8 @@ workflows:
             - build-windows-wheel
       - publish-to-testpypi:
           requires:
-            - integration-test-linux
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
             - integration-test-macos
             - integration-test-windows
           filters:
@@ -268,7 +287,8 @@ workflows:
               only: master
       - publish-to-pypi:
           requires:
-            - integration-test-linux
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
             - integration-test-macos
             - integration-test-windows
           filters:
