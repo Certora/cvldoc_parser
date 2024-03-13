@@ -1,3 +1,5 @@
+use crate::parse::{cvl_parser, decl_parser};
+
 use super::*;
 use indoc::formatdoc;
 use itertools::Itertools;
@@ -572,4 +574,38 @@ fn persistent_ghosts() {
 
     check_ghost(&parsed[0], "pers", true);
     check_ghost(&parsed[1], "non_pers", false);
+}
+
+#[test]
+/// this shouldn't trip up the definition end detection:
+/// the semicolon should be detected even if it's not whitespace-separated from the previous token.
+fn definition_does_not_stop() {
+    let src = indoc! {"
+        methods {
+            function x() external returns uint envfree;
+            function i() external returns int envfree;
+        }
+        
+        // myInvariant: run0 pass run1 fail
+        
+        definition addBv(uint x, uint y) returns mathint = x+y;
+        
+        /**
+         * My amazing invariant (should be @title)
+         * @notice it is very amazing. Please notice
+         */
+        invariant myInvariant() addBv(x(),1) <= max_uint256 {
+            preserved setX(uint y) with (env e) {
+                require y < 1000;
+            }
+        }
+    "};
+
+    let parsed = Builder::new(src).build().unwrap();
+
+    assert_eq!(parsed.len(), 3);
+
+    assert_matches!(&parsed[0].ast, Ast::Methods { .. });
+    assert_matches!(&parsed[1].ast, Ast::Definition { definition, ..} if definition == "x+y");
+    assert_matches!(&parsed[2].ast, Ast::Invariant { .. });
 }

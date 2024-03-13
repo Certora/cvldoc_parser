@@ -48,6 +48,8 @@ pub fn cvl_lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>
             ';' => Token::Semicolon,
             '=' => Token::Equals,
             '!' => Token::Excl,
+            '+' => Token::Plus,
+            '/' => Token::Slash,
         };
         let arrow = just("=>").to(Token::Arrow);
 
