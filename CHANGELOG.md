@@ -1,4 +1,8 @@
 # Changelog
+## [2.0.2] - 2024-03-13
+### Fixed
+- Semicolon not detected at the end of a `definition` statement.
+
 ## [2.0.1] - 2024-03-06
 ### Added
 - Now compiling to `linux-aarch64` aka ARM on Linux
