@@ -606,6 +606,6 @@ fn definition_does_not_stop() {
     assert_eq!(parsed.len(), 3);
 
     assert_matches!(&parsed[0].ast, Ast::Methods { .. });
-    assert_matches!(&parsed[1].ast, Ast::Definition { definition, ..} if definition == "x+y;");
+    assert_matches!(&parsed[1].ast, Ast::Definition { definition, ..} if definition == "x+y");
     assert_matches!(&parsed[2].ast, Ast::Invariant { .. });
 }
