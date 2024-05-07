@@ -1,0 +1,122 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - main
+
+env:
+  AWS_REGION: "us-west-2"
+  DEFAULT_PYTHON_VERSION: "3.10"
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "${{ env.DEFAULT_PYTHON_VERSION }}"
+      - name: Install Dunamai
+        run: pip install dunamai
+      - name: Get the version
+        id: get_version
+        run: |
+          CVL_DOC_PARSER_VERSION=$(dunamai from git --style pep440)
+          echo "CVL_DOC_PARSER_VERSION=$CVL_DOC_PARSER_VERSION" >> $GITHUB_ENV
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run Syntax Check
+        run: cd src/python_wrapper && cargo fmt --all --check
+      - name: Run tests
+        if: success() || failure()
+        run: cargo test
+
+  build_package:
+    name: build on ${{ matrix.platform || matrix.os }} (${{ matrix.target }} - ${{ matrix.manylinux || 'auto' }})
+    # only run on push to main and on release
+    if: "success() && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'Full Build'))"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos, windows]
+        target: [x86_64, aarch64]
+        manylinux: [auto]
+        include:
+          # Linux
+          - os: ubuntu
+            manylinux: auto
+            target: aarch64
+          - os: ubuntu
+            manylinux: auto
+            target: armv7
+          - os: ubuntu
+            manylinux: auto
+            target: x86_64
+
+          # musllinux
+          - os: ubuntu
+            platform: linux
+            target: x86_64
+            manylinux: musllinux_1_1
+          - os: ubuntu
+            platform: linux
+            target: aarch64
+            manylinux: musllinux_1_1
+
+          # Windows
+          - os: windows
+            target: x86_64
+          - os: windows
+            target: aarch64
+
+          # MacOs
+          - os: macos
+            target: x86_64
+          - os: macos
+            target: aarch64
+              
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "${{ env.DEFAULT_PYTHON_VERSION }}"
+          architecture: ${{ matrix.python-architecture || 'x64' }}
+      - run: pip install -U twine setuptools wheel
+      - name: build sdist
+        if: ${{ matrix.os == 'ubuntu' && matrix.target == 'x86_64' && matrix.manylinux == 'auto' }}
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+          rust-toolchain: stable
+
+      - name: build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist --interpreter '3.9 3.10 3.11'
+          rust-toolchain: stable
+          docker-options: -e CI
+
+      - run: ${{ (matrix.os == 'windows' && 'dir') || 'ls -lh' }} dist/
+
+      - run: twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: pypi_files
+          path: dist
