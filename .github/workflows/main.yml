@@ -24,18 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "${{ env.DEFAULT_PYTHON_VERSION }}"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Run Syntax Check
-        run: cd src/python_wrapper && cargo fmt --all --check
-      - name: Run tests
-        if: success() || failure()
-        run: cargo test
-
       - name: build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -43,14 +34,31 @@ jobs:
           rust-toolchain: stable
           docker-options: -e CI
           working-directory: src/python_wrapper
-
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Syntax Check
+        working-directory: src/python_wrapper
+        run: cargo fmt --all --check
+      - name: Cargo Tests
+        if: success() || failure()
+        run: cargo test
       - run: pip install dist/*.whl
-      - run: python3 simple.py
+      - name: Python Tests
+        run: python3 simple.py
         working-directory: tests
 
-      - name: Install Dunamai
-        run: pip install dunamai
-      - name: Get the version
+  get_dynamic_version:
+    runs-on: ubuntu-latest
+    needs: tests
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ env.DEFAULT_PYTHON_VERSION }}"
+      - run: pip install -U dunamai
+      - name: Get Version From Git
         id: get_version
         run: |
           CVL_DOC_PARSER_VERSION=$(dunamai from git --style pep440)
@@ -60,9 +68,7 @@ jobs:
           echo "${VERSION_PLACEHOLDER}"
           echo "${NEW_VERSION}"
           sed -i -E "s/^${VERSION_PLACEHOLDER}$/${NEW_VERSION}/g" src/python_wrapper/pyproject.toml
-
       - uses: actions/upload-artifact@v4
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
         with:
           name: dynamic_version
           path: src/python_wrapper/pyproject.toml
@@ -100,8 +106,8 @@ jobs:
           # # Windows
           - os: windows
             target: x86_64
-          # - os: windows
-          #   target: aarch64
+          - os: windows
+            target: aarch64
 
           # MacOs
           - os: macos
@@ -166,19 +172,16 @@ jobs:
           merge-multiple: true
           path: dist
       - run: du -shc dist/*
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ARTIFACTS_CDK_OIDC }}
           aws-region: ${{ env.AWS_REGION }}
-
       - name: Upload package
         run: |
           export TWINE_USERNAME=aws
           export TWINE_PASSWORD="$(aws codeartifact get-authorization-token --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --query authorizationToken --output text)"
           export TWINE_REPOSITORY_URL="$(aws codeartifact get-repository-endpoint --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --repository Certora-Internal --format pypi --query repositoryEndpoint --output text)"
           twine upload --repository codeartifact dist/*
-
       - name: Github Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
