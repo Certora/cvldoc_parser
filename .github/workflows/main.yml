@@ -1,4 +1,4 @@
-name: Test
+name: CI
 
 on:
   push:
@@ -36,6 +36,18 @@ jobs:
         if: success() || failure()
         run: cargo test
 
+      - name: build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out ../../dist --interpreter '3.9 3.10 3.11'
+          rust-toolchain: stable
+          docker-options: -e CI
+          working-directory: src/python_wrapper
+
+      - run: pip install dist/*.whl
+      - run: python3 simple.py
+        working-directory: tests
+
       - name: Install Dunamai
         run: pip install dunamai
       - name: Get the version
@@ -50,6 +62,7 @@ jobs:
           sed -i -E "s/^${VERSION_PLACEHOLDER}$/${NEW_VERSION}/g" src/python_wrapper/pyproject.toml
 
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
         with:
           name: dynamic_version
           path: src/python_wrapper/pyproject.toml
@@ -57,6 +70,7 @@ jobs:
   build:
     name: build on ${{ matrix.os }} (${{ matrix.target }} - ${{ matrix.manylinux || 'auto' }})
     needs: tests
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
     strategy:
       fail-fast: false
       matrix:
@@ -68,20 +82,20 @@ jobs:
           - os: ubuntu
             manylinux: auto
             target: aarch64
-          # - os: ubuntu
-          #   manylinux: auto
-          #   target: armv7
-          # - os: ubuntu
-          #   manylinux: auto
-          #   target: x86_64
+          - os: ubuntu
+            manylinux: auto
+            target: armv7
+          - os: ubuntu
+            manylinux: auto
+            target: x86_64
 
           # # musllinux
-          # - os: ubuntu
-          #   target: x86_64
-          #   manylinux: musllinux_1_1
-          # - os: ubuntu
-          #   target: aarch64
-          #   manylinux: musllinux_1_1
+          - os: ubuntu
+            target: x86_64
+            manylinux: musllinux_1_1
+          - os: ubuntu
+            target: aarch64
+            manylinux: musllinux_1_1
 
           # # Windows
           - os: windows
@@ -90,10 +104,10 @@ jobs:
           #   target: aarch64
 
           # MacOs
-          # - os: macos
-          #   target: x86_64
-          # - os: macos
-          #   target: aarch64
+          - os: macos
+            target: x86_64
+          - os: macos
+            target: aarch64
 
     runs-on: ${{ matrix.os }}-latest
     steps:
@@ -139,6 +153,7 @@ jobs:
   cedeartifact_pypi_upload:
     runs-on: ubuntu-latest
     needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
