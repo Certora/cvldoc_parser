@@ -37,6 +37,7 @@ jobs:
         id: get_version
         run: |
           CVL_DOC_PARSER_VERSION=$(dunamai from git --style pep440)
+          echo "${CVL_DOC_PARSER_VERSION}"
           echo "CVL_DOC_PARSER_VERSION=$CVL_DOC_PARSER_VERSION" >> $GITHUB_ENV
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Run Syntax Check
