@@ -1,296 +1,296 @@
-# defines:
-#   smoke-test: &smoke-test
-#     name: Smoke test
-#     command: |
-#       wget https://raw.githubusercontent.com/Certora/cvldocTool/master/tests/basic_tests/definition_test.spec
+defines:
+  smoke-test: &smoke-test
+    name: Smoke test
+    command: |
+      wget https://raw.githubusercontent.com/Certora/cvldocTool/master/tests/basic_tests/definition_test.spec
 
-#       python -c "import cvldoc_parser
-#       parsed = cvldoc_parser.parse(\"definition_test.spec\")
-#       assert len(parsed) == 3, \"should parse to 3 elements\""
+      python -c "import cvldoc_parser
+      parsed = cvldoc_parser.parse(\"definition_test.spec\")
+      assert len(parsed) == 3, \"should parse to 3 elements\""
 
-#   store-and-persist:
-#     - store_artifacts: &store-wheel
-#         path: ./src/python_wrapper/target/wheels
-#     - persist_to_workspace: &persist-wheel
-#         root: ./src/python_wrapper/target
-#         paths:
-#           - wheels/*
+  store-and-persist:
+    - store_artifacts: &store-wheel
+        path: ./src/python_wrapper/target/wheels
+    - persist_to_workspace: &persist-wheel
+        root: ./src/python_wrapper/target
+        paths:
+          - wheels/*
 
-# version: 2.1
-# orbs:
-#   rust: circleci/rust@1.6.0
-#   win: circleci/windows@4.1.1
-# jobs:
-#   unit-tests:
-#     docker:
-#       - image: cimg/rust:1.76.0
-#     steps:
-#       - checkout
-#       - run:
-#           name: Install ripgrep
-#           command: |
-#             curl -LO https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb
-#             sudo dpkg -i ripgrep_13.0.0_amd64.deb
-#       - run:
-#           name: Check version matches of Cargo.toml, pyproject.toml and CHANGELOG
-#           command: |
-#             function fail {
-#                 echo "$1"
-#                 status=1
-#             }
+version: 2.1
+orbs:
+  rust: circleci/rust@1.6.0
+  win: circleci/windows@4.1.1
+jobs:
+  unit-tests:
+    docker:
+      - image: cimg/rust:1.76.0
+    steps:
+      - checkout
+      - run:
+          name: Install ripgrep
+          command: |
+            curl -LO https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb
+            sudo dpkg -i ripgrep_13.0.0_amd64.deb
+      - run:
+          name: Check version matches of Cargo.toml, pyproject.toml and CHANGELOG
+          command: |
+            function fail {
+                echo "$1"
+                status=1
+            }
 
-#             CORE_DIR="${PWD}"
-#             PYTHON_MODULE_DIR="${CORE_DIR}/src/python_wrapper"
+            CORE_DIR="${PWD}"
+            PYTHON_MODULE_DIR="${CORE_DIR}/src/python_wrapper"
 
-#             CORE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${CORE_DIR}/Cargo.toml)
-#             LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
+            CORE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${CORE_DIR}/Cargo.toml)
+            LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
 
-#             MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml)
-#             PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
+            MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml)
+            PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
 
-#             [[ $CORE_CARGOTOML_VER == $LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
-#             [[ $CORE_CARGOTOML_VER == $MODULE_CARGOTOML_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match module Cargo.toml version (${MODULE_CARGOTOML_VER})"
+            [[ $CORE_CARGOTOML_VER == $LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
+            [[ $CORE_CARGOTOML_VER == $MODULE_CARGOTOML_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match module Cargo.toml version (${MODULE_CARGOTOML_VER})"
 
-#             # [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
+            # [[ $MODULE_CARGOTOML_VER == $PYPROJ_VER ]] || fail "Python Module Cargo.toml version (${MODULE_CARGOTOML_VER}) doesn't match pyproject.toml version (${PYPROJ_VER})"
 
-#             exit $status
-#       - run:
-#           name: Check code formatting
-#           command: |
-#             cd src/python_wrapper
-#             cargo fmt --all --check
-#       - run:
-#           name: Run cargo test
-#           command: cargo test
+            exit $status
+      - run:
+          name: Check code formatting
+          command: |
+            cd src/python_wrapper
+            cargo fmt --all --check
+      - run:
+          name: Run cargo test
+          command: cargo test
 
-#   build-macos-wheel:
-#     macos:
-#       xcode: 14.0.0
-#     steps:
-#       - checkout
-#       - rust/install
-#       - run:
-#           name: Upgrade pip
-#           command: pip3 install --upgrade pip
-#       - run:
-#           name: Install maturin
-#           command: pip3 install maturin
-#       - run:
-#           name: Build wheel
-#           command: |
-#             cd src/python_wrapper
-#             rustup target install x86_64-apple-darwin aarch64-apple-darwin
-#             maturin build --target=universal2-apple-darwin
-#       - store_artifacts: *store-wheel
-#       - persist_to_workspace: *persist-wheel
+  build-macos-wheel:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - checkout
+      - rust/install
+      - run:
+          name: Upgrade pip
+          command: pip3 install --upgrade pip
+      - run:
+          name: Install maturin
+          command: pip3 install maturin
+      - run:
+          name: Build wheel
+          command: |
+            cd src/python_wrapper
+            rustup target install x86_64-apple-darwin aarch64-apple-darwin
+            maturin build --target=universal2-apple-darwin
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-#   build-linux-x64-wheel:
-#     docker:
-#       - image: quay.io/pypa/manylinux2014_x86_64:latest
-#     steps:
-#       - checkout
-#       - rust/install
-#       - run:
-#           name: Install Maturin and Build wheel
-#           command: |
-#             cd src/python_wrapper
-#             PYBIN_DIR="/opt/python/cp39-cp39/bin"
-#             "${PYBIN_DIR}/pip" install maturin
-#             "${PYBIN_DIR}/maturin" build --bindings=pyo3
-#       - store_artifacts: *store-wheel
-#       - persist_to_workspace: *persist-wheel
+  build-linux-x64-wheel:
+    docker:
+      - image: quay.io/pypa/manylinux2014_x86_64:latest
+    steps:
+      - checkout
+      - rust/install
+      - run:
+          name: Install Maturin and Build wheel
+          command: |
+            cd src/python_wrapper
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
+            "${PYBIN_DIR}/pip" install maturin
+            "${PYBIN_DIR}/maturin" build --bindings=pyo3
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-#   build-linux-aarch64-wheel:
-#     docker:
-#       - image: quay.io/pypa/manylinux2014_aarch64:latest
-#     resource_class: arm.medium
-#     steps:
-#       - checkout
-#       - rust/install
-#       - run:
-#           name: Install Maturin and Build wheel
-#           command: |
-#             cd src/python_wrapper
-#             PYBIN_DIR="/opt/python/cp39-cp39/bin"
-#             "${PYBIN_DIR}/pip" install maturin
-#             "${PYBIN_DIR}/maturin" build --bindings=pyo3
-#       - store_artifacts: *store-wheel
-#       - persist_to_workspace: *persist-wheel
+  build-linux-aarch64-wheel:
+    docker:
+      - image: quay.io/pypa/manylinux2014_aarch64:latest
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - rust/install
+      - run:
+          name: Install Maturin and Build wheel
+          command: |
+            cd src/python_wrapper
+            PYBIN_DIR="/opt/python/cp39-cp39/bin"
+            "${PYBIN_DIR}/pip" install maturin
+            "${PYBIN_DIR}/maturin" build --bindings=pyo3
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-#   build-windows-wheel:
-#     executor: win/default
-#     steps:
-#       - checkout
-#       - run:
-#           name: Upgrade pip
-#           command: python -m pip install --upgrade pip
-#           shell: bash.exe
-#       - run:
-#           name: Install maturin
-#           command: pip install maturin
-#           shell: bash.exe
-#       - run:
-#           name: Install Rust
-#           command: curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
-#           shell: bash.exe
-#       - run:
-#           name: Fix Cargo Config and $PATH
-#           command: |
-#             echo "[net]" >> ~/.cargo/config
-#             echo "git-fetch-with-cli = true" >> ~/.cargo/config
-#           shell: bash.exe
-#       - run:
-#           name: Build wheel
-#           command: |
-#             export PATH=${HOME}/.cargo/bin:$PATH
-#             cd src/python_wrapper
-#             rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
-#             maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
-#           shell: bash.exe
-#       - store_artifacts: *store-wheel
-#       - persist_to_workspace: *persist-wheel
+  build-windows-wheel:
+    executor: win/default
+    steps:
+      - checkout
+      - run:
+          name: Upgrade pip
+          command: python -m pip install --upgrade pip
+          shell: bash.exe
+      - run:
+          name: Install maturin
+          command: pip install maturin
+          shell: bash.exe
+      - run:
+          name: Install Rust
+          command: curl --proto '=https' --tlsv1.2 https://sh.rustup.rs > rustup.sh && sh rustup.sh -y
+          shell: bash.exe
+      - run:
+          name: Fix Cargo Config and $PATH
+          command: |
+            echo "[net]" >> ~/.cargo/config
+            echo "git-fetch-with-cli = true" >> ~/.cargo/config
+          shell: bash.exe
+      - run:
+          name: Build wheel
+          command: |
+            export PATH=${HOME}/.cargo/bin:$PATH
+            cd src/python_wrapper
+            rustup target install x86_64-pc-windows-msvc x86_64-pc-windows-gnu i686-pc-windows-msvc i686-pc-windows-gnu
+            maturin build --target=x86_64-pc-windows-msvc --bindings=pyo3
+          shell: bash.exe
+      - store_artifacts: *store-wheel
+      - persist_to_workspace: *persist-wheel
 
-#   integration-test-linux-x64:
-#     docker:
-#       - image: python:3.9
-#     steps:
-#       - attach_workspace:
-#           at: .
-#       - run:
-#           name: Downgrade pip to earliest compatible version, to test manylinux compatibility
-#           command: pip install pip==19.3
-#       - run:
-#           name: Install wheel
-#           command: pip install wheels/*manylinux*
-#       - run:
-#           <<: *smoke-test
+  integration-test-linux-x64:
+    docker:
+      - image: python:3.9
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run:
+          <<: *smoke-test
 
-#   integration-test-linux-aarch64:
-#     docker:
-#       - image: python:3.9
-#     resource_class: arm.medium
-#     steps:
-#       - attach_workspace:
-#           at: .
-#       - run:
-#           name: Downgrade pip to earliest compatible version, to test manylinux compatibility
-#           command: pip install pip==19.3
-#       - run:
-#           name: Install wheel
-#           command: pip install wheels/*manylinux*
-#       - run:
-#           <<: *smoke-test
+  integration-test-linux-aarch64:
+    docker:
+      - image: python:3.9
+    resource_class: arm.medium
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Downgrade pip to earliest compatible version, to test manylinux compatibility
+          command: pip install pip==19.3
+      - run:
+          name: Install wheel
+          command: pip install wheels/*manylinux*
+      - run:
+          <<: *smoke-test
 
-#   integration-test-macos:
-#     macos:
-#       xcode: 14.0.0
-#     steps:
-#       - attach_workspace:
-#           at: .
-#       - run:
-#           name: Install dependencies
-#           command: HOMEBREW_NO_AUTO_UPDATE=1 brew install wget
-#       - run:
-#           name: Alias python to python3
-#           command: printf "\n%s\n%s" "alias python=python3" "shopt -s expand_aliases" >> ~/.bash_profile
-#       - run:
-#           name: Install wheel
-#           command: python3 -m pip install wheels/*macosx*
-#       - run:
-#           <<: *smoke-test
+  integration-test-macos:
+    macos:
+      xcode: 14.0.0
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: HOMEBREW_NO_AUTO_UPDATE=1 brew install wget
+      - run:
+          name: Alias python to python3
+          command: printf "\n%s\n%s" "alias python=python3" "shopt -s expand_aliases" >> ~/.bash_profile
+      - run:
+          name: Install wheel
+          command: python3 -m pip install wheels/*macosx*
+      - run:
+          <<: *smoke-test
 
-#   integration-test-windows:
-#     executor: win/default
-#     steps:
-#       - attach_workspace:
-#           at: .
-#       - run:
-#           name: Install dependencies
-#           command: choco install wget -y
-#           shell: bash.exe
-#       - run:
-#           name: Install wheel
-#           command: |
-#             pip install --upgrade pip
-#             pip install wheels/*win*
-#           shell: bash.exe
-#       - run:
-#           <<: *smoke-test
-#           shell: bash.exe
+  integration-test-windows:
+    executor: win/default
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          command: choco install wget -y
+          shell: bash.exe
+      - run:
+          name: Install wheel
+          command: |
+            pip install --upgrade pip
+            pip install wheels/*win*
+          shell: bash.exe
+      - run:
+          <<: *smoke-test
+          shell: bash.exe
 
-#   publish-to-testpypi:
-#     docker:
-#       - image: cimg/python:3.10.7
-#     steps:
-#       - attach_workspace:
-#          at: .
-#       - run:
-#           name: Upload wheels to Test PyPI
-#           command: |
-#             pip install --user twine
-#             for wheel in wheels/*.whl; do
-#               echo "Uploading $wheel to Test PYPI...";
-#               python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} "${wheel}"
-#             done
+  publish-to-testpypi:
+    docker:
+      - image: cimg/python:3.10.7
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Upload wheels to Test PyPI
+          command: |
+            pip install --user twine
+            for wheel in wheels/*.whl; do
+              echo "Uploading $wheel to Test PYPI...";
+              python -m twine upload --skip-existing --verbose --repository testpypi -u ${TESTPYPI_USER} -p ${TESTPYPI_PASSWORD} "${wheel}"
+            done
 
-#   publish-to-pypi:
-#     docker:
-#       - image: cimg/python:3.10.7
-#     steps:
-#       - attach_workspace:
-#          at: .
-#       - run:
-#           name: Upload wheels to PyPI
-#           command: |
-#             pip install --user twine
-#             for wheel in wheels/*.whl; do
-#               echo "Uploading $wheel to PyPI...";
-#               python -m twine upload --skip-existing --verbose -u ${PRODPYPI_USER} -p ${PRODPYPI_PASSWORD} "${wheel}"
-#             done
+  publish-to-pypi:
+    docker:
+      - image: cimg/python:3.10.7
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Upload wheels to PyPI
+          command: |
+            pip install --user twine
+            for wheel in wheels/*.whl; do
+              echo "Uploading $wheel to PyPI...";
+              python -m twine upload --skip-existing --verbose -u ${PRODPYPI_USER} -p ${PRODPYPI_PASSWORD} "${wheel}"
+            done
 
-# workflows:
-#   unit-test-build-and-integration-test:
-#     jobs:
-#       - unit-tests
-#       - build-linux-x64-wheel:
-#           requires:
-#             - unit-tests
-#       - build-linux-aarch64-wheel:
-#           requires:
-#             - unit-tests
-#       - build-macos-wheel:
-#           requires:
-#             - unit-tests
-#       - build-windows-wheel:
-#           requires:
-#             - unit-tests
-#       - integration-test-linux-x64:
-#           requires:
-#             - build-linux-x64-wheel
-#       - integration-test-linux-aarch64:
-#           requires:
-#             - build-linux-aarch64-wheel
-#       - integration-test-macos:
-#           requires:
-#             - build-macos-wheel
-#       - integration-test-windows:
-#           requires:
-#             - build-windows-wheel
-#       - publish-to-testpypi:
-#           requires:
-#             - integration-test-linux-x64
-#             - integration-test-linux-aarch64
-#             - integration-test-macos
-#             - integration-test-windows
-#           filters:
-#             branches:
-#               only: master
-#       - publish-to-pypi:
-#           requires:
-#             - integration-test-linux-x64
-#             - integration-test-linux-aarch64
-#             - integration-test-macos
-#             - integration-test-windows
-#           filters:
-#             branches:
-#               only: production
+workflows:
+  unit-test-build-and-integration-test:
+    jobs:
+      - unit-tests
+      - build-linux-x64-wheel:
+          requires:
+            - unit-tests
+      - build-linux-aarch64-wheel:
+          requires:
+            - unit-tests
+      - build-macos-wheel:
+          requires:
+            - unit-tests
+      - build-windows-wheel:
+          requires:
+            - unit-tests
+      - integration-test-linux-x64:
+          requires:
+            - build-linux-x64-wheel
+      - integration-test-linux-aarch64:
+          requires:
+            - build-linux-aarch64-wheel
+      - integration-test-macos:
+          requires:
+            - build-macos-wheel
+      - integration-test-windows:
+          requires:
+            - build-windows-wheel
+      - publish-to-testpypi:
+          requires:
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
+            - integration-test-macos
+            - integration-test-windows
+          filters:
+            branches:
+              only: master
+      - publish-to-pypi:
+          requires:
+            - integration-test-linux-x64
+            - integration-test-linux-aarch64
+            - integration-test-macos
+            - integration-test-windows
+          filters:
+            branches:
+              only: production
