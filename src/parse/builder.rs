@@ -83,16 +83,6 @@ impl<'a> DocumentationBuilder<'a> {
     }
 }
 
-trait ToSpan {
-    fn to_span(&self) -> Span;
-}
-
-impl ToSpan for Span {
-    fn to_span(&self) -> Span {
-        self.clone()
-    }
-}
-
 enum DocOrAst {
     Doc(Vec<DocumentationTag>),
     Ast(Ast),
