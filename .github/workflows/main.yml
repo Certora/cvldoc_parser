@@ -152,22 +152,22 @@ jobs:
           path: dist
       - run: du -shc dist/*
 
-      # - uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_ARTIFACTS_CDK_OIDC }}
-      #     aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ARTIFACTS_CDK_OIDC }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      # - name: Upload package
-      #   run: |
-      #     export TWINE_USERNAME=aws
-      #     export TWINE_PASSWORD="$(aws codeartifact get-authorization-token --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --query authorizationToken --output text)"
-      #     export TWINE_REPOSITORY_URL="$(aws codeartifact get-repository-endpoint --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --repository Certora-Internal --format pypi --query repositoryEndpoint --output text)"
-      #     twine upload --repository codeartifact dist/*
+      - name: Upload package
+        run: |
+          export TWINE_USERNAME=aws
+          export TWINE_PASSWORD="$(aws codeartifact get-authorization-token --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --query authorizationToken --output text)"
+          export TWINE_REPOSITORY_URL="$(aws codeartifact get-repository-endpoint --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --repository Certora-Internal --format pypi --query repositoryEndpoint --output text)"
+          twine upload --repository codeartifact dist/*
 
-      # - name: Github Release
-      #   uses: softprops/action-gh-release@v1
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   with:
-      #     files: |
-      #       dist/*
-      #       CHANGELOG.md
+      - name: Github Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*
+            CHANGELOG.md
