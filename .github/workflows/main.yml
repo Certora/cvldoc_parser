@@ -147,7 +147,7 @@ jobs:
       - run: pip install -U twine
       - uses: actions/download-artifact@v4
         with:
-          name: pypi_files_*
+          pattern: pypi_files_*
           merge-multiple: true
           path: dist
       - run: du -shc dist/*
