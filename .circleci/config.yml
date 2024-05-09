@@ -15,7 +15,7 @@ defines:
         root: ./src/python_wrapper/target
         paths:
           - wheels/*
-
+    
 version: 2.1
 orbs:
   rust: circleci/rust@1.6.0
@@ -45,7 +45,7 @@ jobs:
             CORE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${CORE_DIR}/Cargo.toml)
             LATEST_CHANGELOG_VER=$(rg '\[(\d+\.\d+\.\d+)\]' -o -r '$1' -m 1 ${CORE_DIR}/CHANGELOG.md)
 
-            MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml)
+            MODULE_CARGOTOML_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/Cargo.toml) 
             PYPROJ_VER=$(rg '^version = "(.+)"$' -o -r '$1' ${PYTHON_MODULE_DIR}/pyproject.toml)
 
             [[ $CORE_CARGOTOML_VER == $LATEST_CHANGELOG_VER ]] || fail "Core Cargo.toml version (${CORE_CARGOTOML_VER}) doesn't match latest version in CHANGELOG (${CORE_LATEST_CHANGELOG_VER})"
@@ -59,23 +59,23 @@ jobs:
           command: |
             cd src/python_wrapper
             cargo fmt --all --check
-      - run:
+      - run:  
           name: Run cargo test
           command: cargo test
-
+    
   build-macos-wheel:
     macos:
       xcode: 14.0.0
     steps:
       - checkout
       - rust/install
-      - run:
+      - run: 
           name: Upgrade pip
           command: pip3 install --upgrade pip
-      - run:
+      - run: 
           name: Install maturin
           command: pip3 install maturin
-      - run:
+      - run:    
           name: Build wheel
           command: |
             cd src/python_wrapper
@@ -162,7 +162,7 @@ jobs:
       - run:
           name: Install wheel
           command: pip install wheels/*manylinux*
-      - run:
+      - run: 
           <<: *smoke-test
 
   integration-test-linux-aarch64:
@@ -178,7 +178,7 @@ jobs:
       - run:
           name: Install wheel
           command: pip install wheels/*manylinux*
-      - run:
+      - run: 
           <<: *smoke-test
 
   integration-test-macos:
@@ -196,15 +196,15 @@ jobs:
       - run:
           name: Install wheel
           command: python3 -m pip install wheels/*macosx*
-      - run:
+      - run: 
           <<: *smoke-test
-
+  
   integration-test-windows:
     executor: win/default
     steps:
       - attach_workspace:
           at: .
-      - run:
+      - run: 
           name: Install dependencies
           command: choco install wget -y
           shell: bash.exe
@@ -214,16 +214,16 @@ jobs:
             pip install --upgrade pip
             pip install wheels/*win*
           shell: bash.exe
-      - run:
+      - run: 
           <<: *smoke-test
           shell: bash.exe
-
+            
   publish-to-testpypi:
     docker:
       - image: cimg/python:3.10.7
     steps:
       - attach_workspace:
-          at: .
+         at: .
       - run:
           name: Upload wheels to Test PyPI
           command: |
@@ -238,7 +238,7 @@ jobs:
       - image: cimg/python:3.10.7
     steps:
       - attach_workspace:
-          at: .
+         at: .
       - run:
           name: Upload wheels to PyPI
           command: |
