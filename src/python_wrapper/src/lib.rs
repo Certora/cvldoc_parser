@@ -34,10 +34,9 @@ fn handle_io_error(path: &Path, e: std::io::Error) -> PyErr {
 /// - `RuntimeError` if source code parsing failed.
 #[pyfunction]
 fn parse_string(py: Python, src: String) -> PyResult<Vec<CvlElementPy>> {
-    let elements = Builder::new(&src).build().map_err(|_| {
-        let desc = String::from("failed to parse source code");
-        PyRuntimeError::new_err(desc)
-    })?;
+    let elements = Builder::new(&src)
+        .build()
+        .map_err(|_| PyRuntimeError::new_err("Failed to parse source code"))?;
 
     elements
         .into_iter()
