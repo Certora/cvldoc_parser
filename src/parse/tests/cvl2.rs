@@ -1,5 +1,3 @@
-use crate::parse::{cvl_parser, decl_parser};
-
 use super::*;
 use indoc::formatdoc;
 use itertools::Itertools;
@@ -483,18 +481,18 @@ fn invariant_span_is_correct3() {
         /// of a transaction execution.
         invariant notInitializing()
             !initializing();
-        
-        
+
+
         //////////////////////////////////////////////////////////////////////////////
         //// Rules                                 /////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////
-        
+
         /// @title Only initialized once
         /// @notice An initializable contract with a function that inherits the
         ///         initializer modifier must be initializable only once
         rule initOnce() {
             uint256 val; uint256 a; uint256 b;
-        
+
             require isInitialized();
             initialize@withrevert(val, a, b);
             assert lastReverted, "contract must only be initialized once";
@@ -585,11 +583,11 @@ fn definition_does_not_stop() {
             function x() external returns uint envfree;
             function i() external returns int envfree;
         }
-        
+
         // myInvariant: run0 pass run1 fail
-        
+
         definition addBv(uint x, uint y) returns mathint = x+y;
-        
+
         /**
          * My amazing invariant (should be @title)
          * @notice it is very amazing. Please notice
