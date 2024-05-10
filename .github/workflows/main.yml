@@ -95,7 +95,7 @@ jobs:
             manylinux: auto
             target: x86_64
 
-          # # musllinux
+          # musllinux
           - os: ubuntu
             target: x86_64
             manylinux: musllinux_1_1
@@ -103,7 +103,7 @@ jobs:
             target: aarch64
             manylinux: musllinux_1_1
 
-          # # Windows
+          # Windows
           - os: windows
             target: x86_64
           - os: windows
@@ -179,8 +179,8 @@ jobs:
       - name: Upload package
         run: |
           export TWINE_USERNAME=aws
-          export TWINE_PASSWORD="$(aws codeartifact get-authorization-token --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --query authorizationToken --output text)"
-          export TWINE_REPOSITORY_URL="$(aws codeartifact get-repository-endpoint --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region us-west-2 --repository Certora-Internal --format pypi --query repositoryEndpoint --output text)"
+          export TWINE_PASSWORD="$(aws codeartifact get-authorization-token --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region ${{ env.AWS_REGION }} --query authorizationToken --output text)"
+          export TWINE_REPOSITORY_URL="$(aws codeartifact get-repository-endpoint --domain certora --domain-owner ${{ secrets.AWS_PYPI_DOMAIN_OWNER }} --region ${{ env.AWS_REGION }} --repository Certora-Internal --format pypi --query repositoryEndpoint --output text)"
           twine upload --repository codeartifact dist/*
       - name: Github Release
         uses: softprops/action-gh-release@v1
