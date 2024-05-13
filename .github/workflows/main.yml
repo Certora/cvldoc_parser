@@ -41,10 +41,11 @@ jobs:
       - name: Cargo Tests
         if: success() || failure()
         run: cargo test
-      - run: pip install dist/*.whl
+      - run: pip install mypy dist/*.whl
       - name: Python Tests
-        run: python3 simple.py
-        working-directory: tests
+        run: python3 tests/simple.py
+      - name: Typying Check
+        run: mypy tests/simple.py
 
   get_dynamic_version:
     runs-on: ubuntu-latest
