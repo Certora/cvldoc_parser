@@ -3,7 +3,7 @@ from os import PathLike
 from typing import Any, Dict, List, Optional, Union
 
 class DocumentationTag:
-    kind: str
+    kind: TagKind
     description: str
     def param_name_and_description(self) -> Optional[tuple[str, str]]: ...
 
